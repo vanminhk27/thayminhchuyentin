@@ -1,0 +1,15 @@
+{
+  "name": "thay-minh-online-judge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Máy chấm C++ thử nghiệm cho học sinh của Thầy Minh Chuyên Tin",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "JUDGE_RUNNER=host node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

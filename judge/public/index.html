@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Máy chấm thử nghiệm | Thầy Minh Chuyên Tin</title>
+  <meta name="description" content="Hệ thống thử nghiệm chấm bài lập trình C++ tự động của Thầy Minh Chuyên Tin.">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="https://vanminhk27.github.io/thayminhchuyentin/" target="_blank" rel="noopener">
+      <span class="brand-mark">TM</span>
+      <span><strong>Thầy Minh Chuyên Tin</strong><small>Online Judge · Bản thử nghiệm</small></span>
+    </a>
+    <div class="server-state" id="serverState"><span class="dot"></span><span>Đang kiểm tra máy chấm...</span></div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <p class="eyebrow">KHO BÀI TẬP</p>
+        <h1>Luyện tập C++</h1>
+        <p>Chọn bài, viết lời giải và nộp để hệ thống chạy test tự động.</p>
+      </div>
+      <div class="problem-list" id="problemList" aria-label="Danh sách bài tập"></div>
+      <div class="trial-note">
+        <strong>Giai đoạn thử nghiệm</strong>
+        <p>Dữ liệu chưa lưu lâu dài. Codespace dừng thì lịch sử bài nộp sẽ được làm mới.</p>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <article class="problem-card">
+        <div class="problem-title-row">
+          <div>
+            <p class="eyebrow" id="problemNumber">BÀI #001</p>
+            <h2 id="problemTitle">Đang tải bài tập...</h2>
+          </div>
+          <span class="difficulty" id="difficulty">—</span>
+        </div>
+        <div class="limits">
+          <span>⏱ <strong id="timeLimit">—</strong></span>
+          <span>💾 <strong id="memoryLimit">—</strong></span>
+          <span>⚙️ C++17</span>
+        </div>
+        <section class="statement">
+          <h3>Đề bài</h3>
+          <p id="statement">Vui lòng chờ...</p>
+          <div class="io-grid">
+            <div><h3>Input</h3><p id="inputDescription"></p></div>
+            <div><h3>Output</h3><p id="outputDescription"></p></div>
+          </div>
+          <h3>Ví dụ</h3>
+          <div class="sample-grid">
+            <div><span>Input</span><pre id="sampleInput"></pre></div>
+            <div><span>Output</span><pre id="sampleOutput"></pre></div>
+          </div>
+        </section>
+      </article>
+
+      <section class="editor-card">
+        <div class="editor-head">
+          <div><p class="eyebrow">MÃ NGUỒN</p><h2>Trình soạn thảo C++17</h2></div>
+          <div class="editor-actions"><button class="button secondary" id="resetButton" type="button">Khôi phục mẫu</button></div>
+        </div>
+        <textarea id="sourceCode" aria-label="Mã nguồn C++" spellcheck="false"></textarea>
+        <div class="submit-row">
+          <span class="save-state" id="saveState">Mã nguồn được tự động lưu trên trình duyệt</span>
+          <button class="button primary" id="submitButton" type="button">▶ Nộp bài chấm test</button>
+        </div>
+      </section>
+
+      <section class="result-card" id="resultCard" aria-live="polite">
+        <div class="result-head">
+          <div><p class="eyebrow">KẾT QUẢ</p><h2 id="resultTitle">Chưa có bài nộp</h2></div>
+          <span class="verdict neutral" id="verdict">SẴN SÀNG</span>
+        </div>
+        <p id="resultMessage">Nhập mã nguồn và bấm “Nộp bài chấm test”.</p>
+        <div class="progress" id="progress" hidden><div id="progressBar"></div></div>
+        <pre class="details" id="resultDetails" hidden></pre>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
