@@ -3,86 +3,126 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Máy chấm thử nghiệm | Thầy Minh Chuyên Tin</title>
-  <meta name="description" content="Hệ thống thử nghiệm chấm bài lập trình C++ tự động của Thầy Minh Chuyên Tin.">
-  <link rel="stylesheet" href="/styles.css">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Phòng thi luyện tập | Thầy Minh Online Judge</title>
+  <meta name="description" content="Phòng thi lập trình thử nghiệm giúp học sinh làm quen với giao diện Online Judge và quy trình nộp bài C++.">
+  <link rel="stylesheet" href="/styles.css?v=2">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="https://vanminhk27.github.io/thayminhchuyentin/" target="_blank" rel="noopener">
-      <span class="brand-mark">TM</span>
-      <span><strong>Thầy Minh Chuyên Tin</strong><small>Online Judge · Bản thử nghiệm</small></span>
-    </a>
-    <div class="server-state" id="serverState"><span class="dot"></span><span>Đang kiểm tra máy chấm...</span></div>
+  <header class="site-header">
+    <div class="header-main page-width">
+      <a class="brand" href="#" data-view-link="contest" aria-label="Thầy Minh Online Judge">
+        <span class="brand-symbol">TM</span>
+        <span class="brand-copy"><strong>THẦY MINH ONLINE JUDGE</strong><small>Hệ thống luyện tập & thi thử lập trình</small></span>
+      </a>
+      <nav class="main-nav" aria-label="Điều hướng máy chấm">
+        <button type="button" data-view-link="contest">Kỳ thi</button>
+        <button type="button" class="active" data-view-link="problems">Bài tập</button>
+        <button type="button" data-view-link="submissions">Bài nộp</button>
+        <button type="button" data-view-link="ranking">Xếp hạng</button>
+      </nav>
+      <div class="student-menu"><span class="student-avatar">HS</span><span><strong>Học sinh luyện tập</strong><small>Thí sinh</small></span></div>
+    </div>
   </header>
 
-  <main class="layout">
-    <aside class="sidebar">
-      <div class="sidebar-head">
-        <p class="eyebrow">KHO BÀI TẬP</p>
-        <h1>Luyện tập C++</h1>
-        <p>Chọn bài, viết lời giải và nộp để hệ thống chạy test tự động.</p>
+  <section class="contest-strip">
+    <div class="page-width contest-strip-inner">
+      <div class="contest-name"><span class="live-dot"></span><span><strong>THI THỬ LẬP TRÌNH C++</strong><small>Phòng luyện tập số 01</small></span></div>
+      <div class="contest-facts">
+        <span><small>Trạng thái</small><strong class="running-text">Đang diễn ra</strong></span>
+        <span><small>Thời gian còn lại</small><strong class="timer" id="contestTimer">03:00:00</strong></span>
+        <span><small>Tổng điểm</small><strong id="totalScoreTop">0 / 300</strong></span>
       </div>
-      <div class="problem-list" id="problemList" aria-label="Danh sách bài tập"></div>
-      <div class="trial-note">
-        <strong>Giai đoạn thử nghiệm</strong>
-        <p>Dữ liệu chưa lưu lâu dài. Codespace dừng thì lịch sử bài nộp sẽ được làm mới.</p>
-      </div>
-    </aside>
+      <div class="server-state" id="serverState"><i></i><span>Đang kiểm tra máy chấm</span></div>
+    </div>
+  </section>
 
-    <section class="workspace">
-      <article class="problem-card">
-        <div class="problem-title-row">
-          <div>
-            <p class="eyebrow" id="problemNumber">BÀI #001</p>
-            <h2 id="problemTitle">Đang tải bài tập...</h2>
+  <main class="page-width main-content">
+    <div class="breadcrumbs"><a href="#" data-view-link="contest">Trang chủ</a><span>›</span><a href="#" data-view-link="contest">Thi thử C++</a><span>›</span><strong id="breadcrumbCurrent">Bài tập</strong></div>
+
+    <section class="view" id="contestView" data-view="contest">
+      <div class="content-grid">
+        <article class="card contest-info-card">
+          <div class="card-heading"><div><span class="section-label">KỲ THI LUYỆN TẬP</span><h1>Thi thử lập trình C++ – Phòng số 01</h1></div><span class="status-pill running">ĐANG DIỄN RA</span></div>
+          <div class="notice success"><strong>Hệ thống đã ghi nhận thí sinh.</strong><span>Thầy có thể bắt đầu làm bài và nộp thử ngay.</span></div>
+          <h2>Thông tin kỳ thi</h2>
+          <table class="info-table"><tbody><tr><th>Hình thức</th><td>Lập trình – chấm tự động bằng test</td></tr><tr><th>Ngôn ngữ</th><td>GNU C++17</td></tr><tr><th>Thời lượng</th><td>180 phút</td></tr><tr><th>Số bài</th><td>03 bài · 100 điểm/bài</td></tr><tr><th>Số lần nộp</th><td>Không giới hạn trong giai đoạn luyện tập</td></tr></tbody></table>
+          <h2>Quy trình làm bài</h2>
+          <ol class="instructions"><li>Mở danh sách bài và chọn đúng bài cần làm.</li><li>Đọc kỹ đề, dữ liệu vào, dữ liệu ra và ví dụ.</li><li>Chọn GNU C++17, viết hoặc dán mã nguồn vào khu vực nộp bài.</li><li>Nhấn <strong>Nộp bài</strong> và kiểm tra trạng thái chấm trước khi chuyển bài.</li></ol>
+          <button class="primary-button" type="button" data-view-link="problems">Bắt đầu làm bài</button>
+        </article>
+        <aside class="side-stack">
+          <section class="card compact-card"><h2>Tiến độ của tôi</h2><div class="score-circle"><strong id="contestScore">0</strong><span>/ 300 điểm</span></div><div class="progress-line"><span id="contestProgress"></span></div><p id="contestSolved">Đã giải 0/3 bài</p></section>
+          <section class="card compact-card"><h2>Lưu ý phòng thi</h2><ul class="simple-list"><li>Kiểm tra đúng mã bài trước khi nộp.</li><li>Không in thêm lời giải thích trong output.</li><li>Nộp bài trước khi hết thời gian.</li></ul></section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view active" id="problemsView" data-view="problems">
+      <div class="problem-layout">
+        <article class="card problem-card">
+          <div class="problem-header">
+            <div><span class="problem-code" id="problemCode">Bài A · TM001</span><h1 id="problemTitle">Đang tải đề bài...</h1></div>
+            <div class="problem-points"><strong>100</strong><span>điểm</span></div>
           </div>
-          <span class="difficulty" id="difficulty">—</span>
-        </div>
-        <div class="limits">
-          <span>⏱ <strong id="timeLimit">—</strong></span>
-          <span>💾 <strong id="memoryLimit">—</strong></span>
-          <span>⚙️ C++17</span>
-        </div>
-        <section class="statement">
-          <h3>Đề bài</h3>
-          <p id="statement">Vui lòng chờ...</p>
-          <div class="io-grid">
-            <div><h3>Input</h3><p id="inputDescription"></p></div>
-            <div><h3>Output</h3><p id="outputDescription"></p></div>
+          <div class="problem-tabs">
+            <button class="active" type="button" data-scroll-target="statementArea">Đề bài</button>
+            <button type="button" data-scroll-target="submitArea">Nộp bài</button>
+            <button type="button" data-view-link="submissions">Bài nộp của tôi</button>
           </div>
-          <h3>Ví dụ</h3>
-          <div class="sample-grid">
-            <div><span>Input</span><pre id="sampleInput"></pre></div>
-            <div><span>Output</span><pre id="sampleOutput"></pre></div>
+          <div class="problem-meta"><span>⏱ Giới hạn: <strong id="timeLimit">—</strong></span><span>💾 Bộ nhớ: <strong id="memoryLimit">—</strong></span><span>⌨ Ngôn ngữ: <strong>GNU C++17</strong></span></div>
+
+          <div class="statement" id="statementArea">
+            <p id="statement">Vui lòng chờ hệ thống tải đề bài.</p>
+            <h2>Dữ liệu vào</h2><p id="inputDescription"></p>
+            <h2>Dữ liệu ra</h2><p id="outputDescription"></p>
+            <h2>Ví dụ</h2>
+            <table class="sample-table"><thead><tr><th>Input</th><th>Output</th></tr></thead><tbody><tr><td><pre id="sampleInput"></pre></td><td><pre id="sampleOutput"></pre></td></tr></tbody></table>
+            <div class="note-box"><strong>Chú ý</strong><span>Chương trình phải đọc dữ liệu từ standard input và ghi kết quả ra standard output.</span></div>
           </div>
-        </section>
+
+          <section class="submit-panel" id="submitArea">
+            <div class="submit-title"><div><span class="section-label">NỘP BÀI</span><h2>Gửi mã nguồn</h2></div><span id="saveState">Mã nguồn được lưu trên trình duyệt</span></div>
+            <div class="form-row"><label for="language">Ngôn ngữ</label><select id="language"><option value="cpp17">GNU C++17</option></select></div>
+            <div class="code-toolbar"><span>main.cpp</span><button type="button" id="resetButton">Khôi phục code mẫu</button></div>
+            <textarea id="sourceCode" aria-label="Mã nguồn C++" spellcheck="false"></textarea>
+            <div class="submit-actions"><span>Dung lượng tối đa: 100 KB</span><button class="submit-button" id="submitButton" type="button">Nộp bài</button></div>
+          </section>
+
+          <section class="judge-result" id="resultCard" aria-live="polite">
+            <div><span class="verdict neutral" id="verdict">CHƯA NỘP</span><strong id="resultTitle">Chưa có kết quả chấm</strong></div>
+            <p id="resultMessage">Sau khi nộp, kết quả sẽ hiển thị tại đây và trong mục Bài nộp.</p>
+            <pre id="resultDetails" hidden></pre>
+          </section>
+        </article>
+
+        <aside class="problem-sidebar">
+          <section class="card navigator-card"><div class="sidebar-title"><h2>Danh sách bài</h2><span id="solvedCount">0/3 AC</span></div><div class="problem-list" id="problemList"></div></section>
+          <section class="card compact-card"><h2>Trạng thái ký hiệu</h2><div class="legend"><span><i class="legend-dot untouched"></i>Chưa làm</span><span><i class="legend-dot attempted"></i>Đã nộp</span><span><i class="legend-dot accepted"></i>Đã đúng</span></div></section>
+          <section class="card compact-card latest-box"><h2>Bài nộp gần nhất</h2><div id="latestSubmission"><p>Chưa có bài nộp.</p></div></section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view" id="submissionsView" data-view="submissions">
+      <article class="card list-card">
+        <div class="list-heading"><div><span class="section-label">LỊCH SỬ CHẤM</span><h1>Bài nộp của tôi</h1></div><button class="secondary-button" type="button" data-view-link="problems">+ Nộp bài mới</button></div>
+        <div class="table-scroll"><table class="submission-table"><thead><tr><th>ID</th><th>Thời gian</th><th>Bài</th><th>Ngôn ngữ</th><th>Kết quả</th><th>Test</th><th>Điểm</th></tr></thead><tbody id="submissionRows"></tbody></table></div>
+        <div class="empty-state" id="submissionEmpty"><strong>Chưa có bài nộp</strong><span>Hãy chọn một bài tập và gửi mã nguồn để làm quen với máy chấm.</span></div>
       </article>
+    </section>
 
-      <section class="editor-card">
-        <div class="editor-head">
-          <div><p class="eyebrow">MÃ NGUỒN</p><h2>Trình soạn thảo C++17</h2></div>
-          <div class="editor-actions"><button class="button secondary" id="resetButton" type="button">Khôi phục mẫu</button></div>
-        </div>
-        <textarea id="sourceCode" aria-label="Mã nguồn C++" spellcheck="false"></textarea>
-        <div class="submit-row">
-          <span class="save-state" id="saveState">Mã nguồn được tự động lưu trên trình duyệt</span>
-          <button class="button primary" id="submitButton" type="button">▶ Nộp bài chấm test</button>
-        </div>
-      </section>
-
-      <section class="result-card" id="resultCard" aria-live="polite">
-        <div class="result-head">
-          <div><p class="eyebrow">KẾT QUẢ</p><h2 id="resultTitle">Chưa có bài nộp</h2></div>
-          <span class="verdict neutral" id="verdict">SẴN SÀNG</span>
-        </div>
-        <p id="resultMessage">Nhập mã nguồn và bấm “Nộp bài chấm test”.</p>
-        <div class="progress" id="progress" hidden><div id="progressBar"></div></div>
-        <pre class="details" id="resultDetails" hidden></pre>
-      </section>
+    <section class="view" id="rankingView" data-view="ranking">
+      <article class="card list-card">
+        <div class="list-heading"><div><span class="section-label">BẢNG ĐIỂM LUYỆN TẬP</span><h1>Xếp hạng kỳ thi</h1></div><span class="status-pill practice">CHẾ ĐỘ LUYỆN TẬP</span></div>
+        <div class="table-scroll"><table class="ranking-table"><thead><tr><th>Hạng</th><th>Thí sinh</th><th>Tổng điểm</th><th>Bài A</th><th>Bài B</th><th>Bài C</th></tr></thead><tbody><tr class="current-user"><td>1</td><td><strong>Học sinh luyện tập</strong><small>Thầy Minh Chuyên Tin</small></td><td><strong id="rankingTotal">0</strong></td><td id="rankA">—</td><td id="rankB">—</td><td id="rankC">—</td></tr></tbody></table></div>
+        <div class="practice-message">Bản Codespaces chưa có tài khoản nhiều học sinh. Khi chuyển sang VPS, bảng xếp hạng sẽ cập nhật theo từng tài khoản và kỳ thi.</div>
+      </article>
     </section>
   </main>
 
-  <script type="module" src="/app.js"></script>
+  <footer class="site-footer"><div class="page-width"><span>Thầy Minh Online Judge · Môi trường luyện tập lập trình</span><a href="https://vanminhk27.github.io/thayminhchuyentin/" target="_blank" rel="noopener">Về website Thầy Minh</a></div></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js?v=2"></script>
 </body>
 </html>
