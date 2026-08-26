@@ -12,4 +12,7 @@ node --check judge/src/server.js
 node --check judge/src/judge.js
 node --check judge/public/app.js
 
+echo "Chạy thử một bài C++ trong Docker..."
+JUDGE_RUNNER=docker node judge/test/docker-smoke.js
+
 echo "Codespace đã sẵn sàng. Máy chấm sẽ tự khởi động ở cổng 3000."

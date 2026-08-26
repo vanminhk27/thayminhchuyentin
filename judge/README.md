@@ -10,6 +10,8 @@
 4. Khi cổng `3000` được chuyển tiếp, trang **Máy chấm thử nghiệm** sẽ tự mở.
 5. Chọn bài, nhập mã C++ và bấm **Nộp bài chấm test**.
 
+Trong lần tạo đầu tiên, Codespaces tự biên dịch và chấm một lời giải mẫu bằng Docker. Giao diện chỉ khởi động sau khi phép thử này nhận kết quả `Accepted`.
+
 Cổng 3000 được giữ ở chế độ **Private** theo mặc định để giáo viên kiểm tra. Không chuyển cổng sang Public trong bản MVP vì hệ thống chưa có đăng nhập và giới hạn lượt nộp theo học sinh.
 
 ## Bản MVP hiện có
