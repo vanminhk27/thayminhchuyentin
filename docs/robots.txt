@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://vanminhk27.github.io/thayminhchuyentin/sitemap.xml
+Sitemap: https://thayminhchuyentin.io.vn/sitemap.xml
