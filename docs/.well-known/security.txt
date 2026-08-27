@@ -1,0 +1,5 @@
+Contact: https://zalo.me/0936796153
+Expires: 2027-08-27T23:59:59Z
+Preferred-Languages: vi, en
+Canonical: https://thayminhchuyentin.io.vn/.well-known/security.txt
+

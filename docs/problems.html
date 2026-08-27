@@ -2,6 +2,8 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'none'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; script-src-attr 'none'; connect-src 'self'; media-src 'none'; worker-src 'none'; manifest-src 'self'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Kho bài tập | Thầy Minh Chuyên Tin</title>
   <meta name="description" content="Kho bài tập C++, Python và thuật toán cho học sinh, được phân loại theo chủ đề và độ khó để luyện thi chuyên Tin, HSG và Tin học trẻ.">
@@ -35,12 +37,6 @@
     </div>
     <div class="note"><b>Lưu ý:</b> Website hiện hỗ trợ đọc đề và soạn/lưu code trên trình duyệt. Hệ thống chấm C++/Python tự động cần máy chủ Judge riêng và sẽ được kết nối ở giai đoạn tiếp theo.</div>
   </main>
-  <script>
-    const q=document.getElementById("search"),topic=document.getElementById("topic"),items=[...document.querySelectorAll(".item")],count=document.getElementById("count"),empty=document.getElementById("empty");
-    const params=new URLSearchParams(location.search);if(params.get("q"))q.value=params.get("q");
-    function normalize(text){return text.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
-    function filter(){const s=normalize(q.value.trim()),t=topic.value;let visible=0;items.forEach(item=>{const show=normalize(item.textContent).includes(s)&&(t==="all"||item.dataset.topic===t);item.style.display=show?"grid":"none";if(show)visible++});count.textContent=visible+" / "+items.length+" bài";empty.style.display=visible?"none":"block"}
-    q.addEventListener("input",filter);topic.addEventListener("change",filter);filter();
-  </script>
+  <script src="assets/problem-list.js" defer></script>
 </body>
 </html>
