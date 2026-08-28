@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Lập trình Scratch sáng tạo</title>
+  <desc id="desc">Các khối lệnh trực quan kết nối thành chương trình</desc>
+  <g fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 12h16a4 4 0 0 1 8 0h14a4 4 0 0 1 4 4v8H41a4 4 0 0 0-8 0H9v-8a4 4 0 0 1 4-4Z"/>
+    <path d="M9 29h17a4 4 0 0 1 8 0h21v8a4 4 0 0 1-4 4H38a4 4 0 0 0-8 0H13a4 4 0 0 1-4-4v-8Z" opacity=".86"/>
+    <path d="M13 46h13a4 4 0 0 1 8 0h17a4 4 0 0 1 4 4v2a4 4 0 0 1-4 4H13a4 4 0 0 1-4-4v-2a4 4 0 0 1 4-4Z" opacity=".72"/>
+  </g>
+</svg>

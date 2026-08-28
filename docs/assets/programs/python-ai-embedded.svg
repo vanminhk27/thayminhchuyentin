@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Python AI và hệ thống nhúng</title>
+  <desc id="desc">Vi mạch thông minh kết hợp camera và kết nối cảm biến</desc>
+  <g fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="14" y="14" width="36" height="36" rx="8"/>
+    <path d="M22 14V8M32 14V8M42 14V8M22 56v-6M32 56v-6M42 56v-6M14 22H8M14 32H8M14 42H8M56 22h-6M56 32h-6M56 42h-6" opacity=".78"/>
+    <circle cx="32" cy="31" r="9"/>
+    <circle cx="32" cy="31" r="3" fill="#fff" stroke="none"/>
+    <path d="M22 43c3-3 6-4 10-4s7 1 10 4" opacity=".8"/>
+    <path d="M24 20h4M36 20h4"/>
+  </g>
+</svg>
