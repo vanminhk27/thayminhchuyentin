@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feature/ai-code-tutor]
+    branches: [main, feature/ai-code-tutor]
 
 jobs:
   worker-tests:
