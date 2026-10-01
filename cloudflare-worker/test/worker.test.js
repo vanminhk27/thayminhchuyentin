@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker,{parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,normalizeLevel,violatesTutorPolicy} from "../src/index.js";
+import worker,{parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,violatesTutorPolicy} from "../src/index.js";
 
 test("parseImage accepts jpeg data URL",()=>{const x=parseImage("data:image/jpeg;base64,QUJD");assert.equal(x.mimeType,"image/jpeg");assert.equal(x.data,"QUJD")});
 test("parseImage rejects non-image",()=>assert.throws(()=>parseImage("data:text/plain;base64,QUJD")));
@@ -30,6 +30,18 @@ test("falls back when primary model is overloaded",async()=>{
     assert.equal(data.fallback,true);
     assert.ok(seen.length>=2);
   }finally{globalThis.fetch=oldFetch}
+});
+
+test("CORS accepts production origin variants",()=>{
+  assert.equal(isAllowedOrigin("https://thayminhchuyentin.io.vn","https://thayminhchuyentin.io.vn/"),true);
+  assert.equal(isAllowedOrigin("https://www.thayminhchuyentin.io.vn","https://thayminhchuyentin.io.vn/"),true);
+  assert.equal(isAllowedOrigin("https://evil.example","https://thayminhchuyentin.io.vn/"),false);
+});
+test("OPTIONS returns matching production CORS origin",async()=>{
+  const origin="https://thayminhchuyentin.io.vn";
+  const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"OPTIONS",headers:{Origin:origin}}),{ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn/"});
+  assert.equal(r.status,204);
+  assert.equal(r.headers.get("access-control-allow-origin"),origin);
 });
 
 test("selectModel accepts stable Flash-Lite fallbacks",()=>{assert.equal(selectModel("gemini-3.5-flash-lite"),"gemini-3.5-flash-lite");assert.equal(selectModel("gemini-3.1-flash-lite"),"gemini-3.1-flash-lite")});
