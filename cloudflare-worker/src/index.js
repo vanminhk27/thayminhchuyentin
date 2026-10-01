@@ -67,7 +67,7 @@ export default {
     const allowed=env.ALLOWED_ORIGIN||"https://thayminhchuyentin.io.vn";
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors(origin,allowed)});
     if(request.method==="GET" && (url.pathname==="/"||url.pathname==="/health")){
-      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL)},200,origin,allowed);
+      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL),geminiConfigured:Boolean(env.GEMINI_API_KEY)},200,origin,allowed);
     }
     if(request.method!=="POST" || !["/","/api/ai-tutor"].includes(url.pathname)){
       return json({error:"Not found"},404,origin,allowed);
