@@ -2,18 +2,18 @@
 const $=id=>document.getElementById(id),prompt=$("prompt"),image=$("image"),preview=$("preview"),answer=$("answer"),status=$("status");
 let imageData=null,history=[];
 function normalizeBareLatex(text){
-  const parts=String(text??"").split(/(```[\\s\\S]*?```)/g);
+  const parts=String(text??"").split(/(```[\s\S]*?```)/g);
   return parts.map((part,i)=>{
     if(i%2===1)return part;
     return part.split("\n").map(line=>{
       const t=line.trim();
       if(!t)return line;
-      if(/(\$\$|\\\\\[|\\\\\]|\\\\\(|\\\\\))/.test(t))return line;
-      const hasLatex=/\\\\(?:frac|dfrac|tfrac|times|cdot|dots|ldots|cdots|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|neq|approx|infty|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|phi|omega|text|mathrm|mathbf|mathbb|left|right|begin|end)\\b/.test(t);
-      const looksFormula=/^[A-Za-z0-9_{}()[\\]+\\-*/=<>.,:;\\\\^\\s]+$/.test(t);
+      if(/(\$\$|\\\[|\\\]|\\\(|\\\))/.test(t))return line;
+      const hasLatex=/\\(?:frac|dfrac|tfrac|times|cdot|dots|ldots|cdots|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|neq|approx|infty|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|phi|omega|text|mathrm|mathbf|mathbb|left|right|begin|end)\b/.test(t);
+      const looksFormula=/^[A-Za-z0-9_{}()[\]+\-*/=<>.,:;\\^\s]+$/.test(t);
       if(hasLatex&&looksFormula){
-        const pad=(line.match(/^\\s*/)||[""])[0];
-        return pad+"$"+t+"$";
+        const pad=(line.match(/^\s*/)||[""])[0];
+        return pad+"$$"+t+"$$";
       }
       return line;
     }).join("\n");
