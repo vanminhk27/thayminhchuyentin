@@ -33,3 +33,44 @@ test("falls back when primary model is overloaded",async()=>{
 });
 
 test("selectModel accepts stable Flash-Lite fallbacks",()=>{assert.equal(selectModel("gemini-3.5-flash-lite"),"gemini-3.5-flash-lite");assert.equal(selectModel("gemini-3.1-flash-lite"),"gemini-3.1-flash-lite")});
+
+test("student levels can never request full-solution mode",()=>{
+  assert.equal(normalizeLevel("hint"),"hint");
+  assert.equal(normalizeLevel("guide"),"guide");
+  assert.equal(normalizeLevel("detail"),"guide");
+  assert.equal(normalizeLevel("max"),"guide");
+});
+
+test("guide prompt explicitly forbids full solutions",()=>{
+  const p=systemPrompt("python","guide");
+  assert.match(p,/TUYỆT ĐỐI KHÔNG đưa lời giải hoàn chỉnh/);
+  assert.match(p,/MỘT bước mỗi lượt/);
+  assert.doesNotMatch(p,/code hoàn chỉnh nhưng phải giải thích/);
+});
+
+test("policy detector catches full code but allows normal hints",()=>{
+  assert.equal(violatesTutorPolicy("Gợi ý: em thử xem constraints trước."),false);
+  assert.equal(violatesTutorPolicy("Đây là code hoàn chỉnh\n\`\`\`python\nprint(1)\n\`\`\`"),true);
+  assert.equal(violatesTutorPolicy("#include <bits/stdc++.h>\nint main(){}"),true);
+});
+
+test("worker rewrites accidental full solution into a hint",async()=>{
+  const oldFetch=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async()=>{
+    calls++;
+    if(calls===1){
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"Đây là code hoàn chỉnh:\n\`\`\`python\nprint(42)\n\`\`\`"}]}}]}),{status:200,headers:{"content-type":"application/json"}});
+    }
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"Gợi ý: em thử xác định dữ liệu đầu vào và tự hỏi kết quả cần phụ thuộc vào đại lượng nào. Em thử viết nhận xét đó trước nhé."}]}}]}),{status:200,headers:{"content-type":"application/json"}});
+  };
+  try{
+    const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"Giải luôn và cho code",language:"python",level:"guide"})}),{GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.rewritten,true);
+    assert.equal(data.level,"guide");
+    assert.equal(violatesTutorPolicy(data.answer),false);
+    assert.ok(calls>=2);
+  }finally{globalThis.fetch=oldFetch}
+});
