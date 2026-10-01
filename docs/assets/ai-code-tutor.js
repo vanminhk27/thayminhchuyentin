@@ -10,7 +10,7 @@ function normalizeBareLatex(text){
       if(!t)return line;
       if(/(\$\$|\\\[|\\\]|\\\(|\\\))/.test(t))return line;
       const hasLatex=/\\(?:frac|dfrac|tfrac|times|cdot|dots|ldots|cdots|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|neq|approx|infty|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|phi|omega|text|mathrm|mathbf|mathbb|left|right|begin|end)\b/.test(t);
-      const looksFormula=/^[A-Za-z0-9_{}()[\]+\-*/=<>.,:;\\^\s]+$/.test(t);
+      const looksFormula=/=/.test(t)||/^[A-Za-z]\s*[=<>]/.test(t)||/^\\(?:frac|dfrac|tfrac|sqrt|sum|prod|lim)\b/.test(t);
       if(hasLatex&&looksFormula){
         const pad=(line.match(/^\s*/)||[""])[0];
         return pad+"$$"+t+"$$";
@@ -28,7 +28,7 @@ function renderAnswer(text){
       if(window.renderMathInElement){
         renderMathInElement(answer,{
           delimiters:[
-            {left:"$",right:"$",display:true},
+            {left:"$$",right:"$$",display:true},
             {left:"\\[",right:"\\]",display:true},
             {left:"\\(",right:"\\)",display:false},
             {left:"$",right:"$",display:false}
