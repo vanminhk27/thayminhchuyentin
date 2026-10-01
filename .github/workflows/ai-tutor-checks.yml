@@ -21,6 +21,25 @@ jobs:
       - run: npm test
       - run: node --check src/index.js
       - run: node --check ../docs/assets/ai-code-tutor.js
+      - name: Production CORS preflight test
+        run: |
+          node - <<'NODE'
+          const origin = "https://thayminhchuyentin.io.vn";
+          const r = await fetch("https://thayminhchuyentin.vanminhk-27.workers.dev/api/ai-tutor", {
+            method: "OPTIONS",
+            headers: {
+              "Origin": origin,
+              "Access-Control-Request-Method": "POST",
+              "Access-Control-Request-Headers": "content-type"
+            }
+          });
+          const allow = r.headers.get("access-control-allow-origin");
+          if (r.status !== 204 || allow !== origin) {
+            console.error("Preflight failed:", r.status, allow);
+            process.exit(1);
+          }
+          console.log("CORS preflight OK");
+          NODE
       - name: Production Worker smoke test
         run: |
           node - <<'NODE'
