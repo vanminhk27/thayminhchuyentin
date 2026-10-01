@@ -53,8 +53,12 @@ function extractAnswer(data){
   const parts=data?.candidates?.[0]?.content?.parts||[];
   return parts.map(p=>p.text||"").join("").trim();
 }
+function selectModel(value){
+  const allowed=new Set(["gemini-3.8-flash","gemini-3.7-flash","gemini-3.6-flash","gemini-3.5-flash","gemini-3.5-flash-lite"]);
+  return allowed.has(value)?value:"gemini-3.8-flash";
+}
 
-export {parseImage,systemPrompt,toGeminiContents,extractAnswer};
+export {parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel};
 
 export default {
   async fetch(request,env){
@@ -63,7 +67,7 @@ export default {
     const allowed=env.ALLOWED_ORIGIN||"https://thayminhchuyentin.io.vn";
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors(origin,allowed)});
     if(request.method==="GET" && (url.pathname==="/"||url.pathname==="/health")){
-      return json({ok:true,service:"Thầy Minh AI Tutor",model:env.GEMINI_MODEL||"gemini-3.8-flash"},200,origin,allowed);
+      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL)},200,origin,allowed);
     }
     if(request.method!=="POST" || !["/","/api/ai-tutor"].includes(url.pathname)){
       return json({error:"Not found"},404,origin,allowed);
@@ -85,7 +89,7 @@ export default {
       contents:toGeminiContents(body.history,message,image),
       generationConfig:{temperature:0.35,maxOutputTokens:8192}
     };
-    const model=env.GEMINI_MODEL||"gemini-3.8-flash";
+    const model=selectModel(env.GEMINI_MODEL);
     let upstream;
     try{
       upstream=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
