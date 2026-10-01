@@ -4,8 +4,12 @@
   "main": "src/index.js",
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
+  "keep_vars": true,
   "vars": {
     "ALLOWED_ORIGIN": "https://thayminhchuyentin.io.vn",
     "GEMINI_MODEL": "gemini-3.8-flash"
+  },
+  "secrets": {
+    "required": ["GEMINI_API_KEY"]
   }
 }
