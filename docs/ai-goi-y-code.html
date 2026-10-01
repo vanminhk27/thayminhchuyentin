@@ -12,20 +12,20 @@
 </style></head>
 <body>
 <header class="top"><div class="wrap nav"><a class="brand" href="index.html">THẦY MINH CHUYÊN TIN</a><a href="index.html">Trang chủ</a><a href="https://luyencode.net/organization/tmct" target="_blank" rel="noopener">Luyện Code</a><a class="active" href="ai-goi-y-code.html">🤖 AI Gợi Ý Giải Code</a></div></header>
-<section class="hero"><div class="wrap"><h1>🤖 AI Gợi Ý Giải Code</h1><p>Trợ giảng AI cho Python & C++: phân tích đề, chia nhỏ bài toán, gợi ý thuật toán, kiểm tra độ phức tạp, tìm lỗi WA/TLE/RE, tạo test phản ví dụ và giải thích lời giải từng bước.</p></div></section>
+<section class="hero"><div class="wrap"><h1>🤖 AI Gợi Ý Giải Code</h1><p>Trợ giảng AI cho Python & C++: chỉ gợi ý từng bước để học sinh tự tìm lời giải, phân tích đề, kiểm tra tư duy, tìm lỗi WA/TLE/RE và đặt câu hỏi dẫn dắt.</p></div></section>
 <main class="wrap shell">
 <section class="panel"><div class="panelHead">Đề bài / Code / Hình ảnh</div><div class="body">
-<div class="controls"><select id="language"><option value="auto">Tự nhận diện ngôn ngữ</option><option value="python" selected>Python</option><option value="cpp">C++</option></select><select id="level"><option value="hint">Chỉ gợi ý</option><option value="guide">Hướng dẫn</option><option value="detail">Phân tích chi tiết</option><option value="max" selected>Giải cực kỳ chi tiết</option></select></div>
+<div class="controls"><select id="language"><option value="auto">Tự nhận diện ngôn ngữ</option><option value="python" selected>Python</option><option value="cpp">C++</option></select><select id="level"><option value="hint" selected>Gợi ý nhẹ</option><option value="guide">Hướng dẫn từng bước</option></select></div>
 <textarea id="prompt" placeholder="Dán đề bài, code hoặc câu hỏi vào đây...&#10;&#10;Bạn cũng có thể Ctrl+V ảnh đề/code trực tiếp."></textarea>
 <div class="drop" id="drop"><b>📷 Ảnh đề bài / code</b><br><small>Chọn ảnh, chụp ảnh trên điện thoại hoặc Ctrl+V</small><br><input id="image" type="file" accept="image/*" capture="environment"><img id="preview" class="preview" alt="Ảnh đã chọn"></div>
-<div class="chips"><button class="chip" data-q="Hãy phân tích đề bài và chia nhỏ thành các bước.">Phân tích đề</button><button class="chip" data-q="Hãy gợi ý hướng giải, bắt đầu từ brute force rồi tối ưu.">Gợi ý thuật toán</button><button class="chip" data-q="Hãy kiểm tra code, tìm lỗi WA/TLE/RE và tạo test phản ví dụ.">Tìm lỗi code</button><button class="chip" data-q="Hãy trace code từng bước với một test phù hợp.">Trace code</button></div>
-<div class="actions"><button class="btn primary" id="send">Phân tích với AI →</button><button class="btn secondary" id="clear">Làm mới</button></div><div class="status" id="status"></div>
-<div class="note">AI có thể sai. Với bài thi, hãy kiểm tra lại chứng minh, độ phức tạp và test biên trước khi sử dụng lời giải.</div>
+<div class="chips"><button class="chip" data-q="Hãy chỉ ra điều đầu tiên em cần chú ý trong đề và hỏi em 1-2 câu để em tự nghĩ tiếp. Không giải bài.">Phân tích đề</button><button class="chip" data-q="Cho em đúng một gợi ý tiếp theo, không nêu lời giải hoàn chỉnh và không viết code.">Gợi ý tiếp theo</button><button class="chip" data-q="Hãy chỉ ra tối đa 1-2 chỗ đáng nghi trong code và cho em câu hỏi/test để tự sửa. Không viết lại code hoàn chỉnh.">Tìm lỗi code</button><button class="chip" data-q="Hãy chọn một test nhỏ và hỏi em dự đoán từng bước chạy của code; không trace hết thay em.">Trace cùng em</button></div>
+<div class="actions"><button class="btn primary" id="send">Nhận gợi ý từ AI →</button><button class="btn secondary" id="clear">Làm mới</button></div><div class="status" id="status"></div>
+<div class="note">AI chỉ đóng vai trò gợi ý. Hãy tự kiểm tra chứng minh, độ phức tạp và test biên trước khi chốt lời giải.</div>
 </div></section>
-<section class="panel"><div class="panelHead">AI Tutor</div><div id="answer" class="answer"><span class="empty">Hãy gửi đề bài hoặc code. AI sẽ ưu tiên tư duy thuật toán và có thể giải cực kỳ chi tiết khi bạn chọn mức hỗ trợ cao nhất.</span></div><form id="follow" class="follow"><input id="followText" placeholder="Hỏi tiếp về lời giải..."><button class="btn primary">Gửi</button></form></section>
+<section class="panel"><div class="panelHead">AI Tutor</div><div id="answer" class="answer"><span class="empty">Hãy gửi đề bài hoặc code. AI sẽ chỉ gợi ý từng bước và dừng lại để bạn tự suy nghĩ, không đưa lời giải hoàn chỉnh.</span></div><form id="follow" class="follow"><input id="followText" placeholder="Hỏi tiếp về lời giải..."><button class="btn primary">Gửi</button></form></section>
 </main><footer class="footer"><div class="wrap">© 2026 Thầy Minh Chuyên Tin · AI hỗ trợ học tập lập trình</div></footer>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="assets/ai-code-tutor.js?v=20261002-3" defer></script></body></html>
+<script src="assets/ai-code-tutor.js?v=20261002-4" defer></script></body></html>
