@@ -14,9 +14,28 @@ function violatesTutorPolicy(text){
   return false;
 }
 
+function normalizeOrigin(value){
+  return String(value||"").trim().replace(/\/+$/,"");
+}
+function isAllowedOrigin(origin,configured){
+  const value=normalizeOrigin(origin);
+  if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(value))return true;
+  const allowed=new Set([
+    "https://thayminhchuyentin.io.vn",
+    "https://www.thayminhchuyentin.io.vn",
+    normalizeOrigin(configured)
+  ].filter(Boolean));
+  return allowed.has(value);
+}
 function cors(origin,allowed){
-  const ok=origin===allowed || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin||"");
-  return {"access-control-allow-origin":ok?origin:allowed,"access-control-allow-methods":"POST, OPTIONS, GET","access-control-allow-headers":"Content-Type","vary":"Origin"};
+  const ok=isAllowedOrigin(origin,allowed);
+  return {
+    "access-control-allow-origin":ok?normalizeOrigin(origin):"https://thayminhchuyentin.io.vn",
+    "access-control-allow-methods":"POST, OPTIONS, GET",
+    "access-control-allow-headers":"Content-Type",
+    "access-control-max-age":"86400",
+    "vary":"Origin"
+  };
 }
 function json(data,status=200,origin="",allowed="https://thayminhchuyentin.io.vn"){
   return new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors(origin,allowed)}});
@@ -72,7 +91,7 @@ function selectModel(value){
   return allowed.has(value)?value:"gemini-3.8-flash";
 }
 
-export {parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel};
+export {parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,violatesTutorPolicy};
 
 export default {
   async fetch(request,env){
@@ -86,7 +105,7 @@ export default {
     if(request.method!=="POST" || !["/","/api/ai-tutor"].includes(url.pathname)){
       return json({error:"Not found"},404,origin,allowed);
     }
-    if(origin && origin!==allowed && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)){
+    if(origin && !isAllowedOrigin(origin,allowed)){
       return json({error:"Origin không được phép."},403,origin,allowed);
     }
     if(!env.GEMINI_API_KEY)return json({error:"Máy chủ chưa cấu hình GEMINI_API_KEY."},500,origin,allowed);
