@@ -1,10 +1,18 @@
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
 const LEVELS={
-  hint:"Chỉ gợi ý nhẹ. Không đưa code hoàn chỉnh trừ khi người học yêu cầu rõ ràng.",
-  guide:"Hướng dẫn từng bước bằng câu hỏi và gợi ý, sau đó mới nêu thuật toán.",
-  detail:"Phân tích chi tiết: đề bài, constraints, brute force, tối ưu, độ phức tạp, pseudocode và lỗi thường gặp.",
-  max:"Giải cực kỳ chi tiết: phân tích đề, Input/Output, constraints, dạng bài, brute force, vì sao chưa tốt, thuật toán tối ưu, chứng minh, độ phức tạp, pseudocode, code hoàn chỉnh, giải thích code, test mẫu, edge cases và lỗi thường gặp."
+  hint:"Chỉ đưa 1 gợi ý nhỏ và 1-2 câu hỏi dẫn dắt. Không nêu lời giải, tên thuật toán tối ưu, công thức cuối, pseudocode hay code.",
+  guide:"Hướng dẫn từng bước nhưng dừng trước lời giải hoàn chỉnh. Mỗi lượt chỉ mở thêm một bước suy luận và kết thúc bằng câu hỏi hoặc việc học sinh cần tự làm tiếp."
 };
+function normalizeLevel(level){
+  return level==="hint"?"hint":"guide";
+}
+function violatesTutorPolicy(text){
+  const s=String(text||"");
+  if(/\`\`\`/.test(s))return true;
+  if(/(^|\n)\s*(?:def\s+\w+\s*\(|class\s+\w+|#include\s*<|int\s+main\s*\(|for\s*\([^\n]+\)\s*\{|while\s*\([^\n]+\)\s*\{)/m.test(s))return true;
+  if(/\b(?:code hoàn chỉnh|lời giải hoàn chỉnh|đáp án hoàn chỉnh|pseudocode đầy đủ|thuật toán đầy đủ)\b/i.test(s))return true;
+  return false;
+}
 
 function normalizeOrigin(value){
   return String(value||"").trim().replace(/\/+$/,"");
@@ -41,21 +49,27 @@ function parseImage(dataUrl){
 }
 function systemPrompt(language,level){
   const lang=language==="cpp"?"C++":language==="python"?"Python":"tự nhận diện giữa Python và C++";
+  const mode=normalizeLevel(level);
   return `Bạn là AI Tutor của Thầy Minh Chuyên Tin, chuyên bồi dưỡng HSG Tin học, Tin học trẻ và Olympic.
 Ngôn ngữ ưu tiên: ${lang}.
-Mức hỗ trợ: ${LEVELS[level]||LEVELS.max}
+Chế độ học sinh: ${LEVELS[mode]}
 
-Nguyên tắc:
-- Trả lời bằng tiếng Việt rõ ràng, chính xác, phù hợp học sinh.
-- Khi có đề bài: xác định Input, Output, constraints, dạng bài và độ phức tạp mục tiêu trước khi chốt thuật toán.
-- Luôn cân nhắc brute force trước, rồi giải thích cách tối ưu.
-- Khi có code: tìm lỗi logic, WA, TLE, RE, overflow, indexing, boundary, nhiều test, recursion depth và edge cases.
-- Nếu nghi ngờ lời giải sai, hãy tạo test phản ví dụ.
-- Với code Python, chú ý hiệu năng I/O, độ phức tạp, recursion và kiểu dữ liệu.
-- Với C++, mặc định C++17; chú ý long long, iterator/index và UB.
-- Không bịa dữ kiện đề bài. Nếu ảnh/đề thiếu hoặc mờ, nêu rõ phần chưa đọc được.
-- Với mức chi tiết cao nhất, có thể đưa lời giải và code hoàn chỉnh nhưng phải giải thích tư duy, chứng minh và kiểm thử.
-- Trình bày có tiêu đề ngắn, dùng Markdown; văn bản và tiêu đề phải bắt đầu sát lề trái, không thụt 4 dấu cách.\n- Không bọc toàn bộ câu trả lời trong code fence; chỉ code thật mới đặt trong code fence đúng ngôn ngữ.\n- Công thức toán phải dùng \\( ... \\) khi nằm trong dòng hoặc \\[ ... \\] khi đứng riêng; không để lệnh LaTeX trần.`;
+MỤC TIÊU CỐT LÕI: giúp học sinh TỰ TÌM RA LỜI GIẢI. Đây là chatbot gợi ý, không phải máy giải bài.
+
+QUY TẮC BẮT BUỘC:
+- TUYỆT ĐỐI KHÔNG đưa lời giải hoàn chỉnh, code hoàn chỉnh, pseudocode hoàn chỉnh hoặc công thức đáp án cuối.
+- TUYỆT ĐỐI KHÔNG tiếp tục từ gợi ý thành lời giải chỉ vì học sinh yêu cầu "giải luôn", "cho code", "em chịu rồi" hoặc tương tự. Khi đó chỉ tăng mức rõ ràng của GỢI Ý.
+- Với mode hint: tối đa 1 ý gợi mở + 1-2 câu hỏi. Không nêu tên thuật toán tối ưu nếu học sinh chưa tự nhận ra.
+- Với mode guide: có thể chỉ ra dạng tư duy/khái niệm và một bước tiếp theo, nhưng chỉ mở MỘT bước mỗi lượt. Dừng lại để học sinh trả lời.
+- Nếu học sinh gửi code: chỉ ra tối đa 1-2 điểm đáng nghi và câu hỏi kiểm tra; không viết lại toàn bộ code đúng.
+- Nếu cần test phản ví dụ, có thể đưa 1 test nhỏ nhưng không suy diễn thành lời giải đầy đủ.
+- Ưu tiên hỏi về constraints, độ phức tạp mục tiêu, invariant, trạng thái, cấu trúc dữ liệu hoặc trường hợp biên.
+- Không bịa dữ kiện. Nếu đề/ảnh thiếu hoặc mờ, hỏi lại phần còn thiếu.
+- Trả lời ngắn gọn, thường 80-220 từ; chỉ dài hơn khi cần giải thích một khái niệm nền tảng.
+- Mỗi câu trả lời nên kết thúc bằng "Em thử..." hoặc một câu hỏi cụ thể để học sinh tiếp tục suy nghĩ.
+- Trình bày Markdown sạch, không thụt 4 dấu cách đầu dòng.
+- Chỉ dùng code inline rất ngắn nếu cần nhắc tên biến/biểu thức; không dùng code fence.
+- Công thức toán dùng $...$ trong dòng hoặc $$...$$ khi đứng riêng. Không để lệnh LaTeX trần.`;
 }
 function toGeminiContents(history,message,image){
   const contents=[];
@@ -77,7 +91,7 @@ function selectModel(value){
   return allowed.has(value)?value:"gemini-3.8-flash";
 }
 
-export {parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin};
+export {parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,violatesTutorPolicy};
 
 export default {
   async fetch(request,env){
@@ -103,10 +117,11 @@ export default {
     let image;
     try{image=parseImage(body.image||null)}catch(e){return json({error:e.message},400,origin,allowed)}
     if(!message&&!image)return json({error:"Hãy nhập đề bài, code hoặc gửi ảnh."},400,origin,allowed);
+    const level=normalizeLevel(body.level);
     const payload={
-      system_instruction:{parts:[{text:systemPrompt(body.language,body.level)}]},
+      system_instruction:{parts:[{text:systemPrompt(body.language,level)}]},
       contents:toGeminiContents(body.history,message,image),
-      generationConfig:{temperature:0.35,maxOutputTokens:8192}
+      generationConfig:{temperature:0.2,maxOutputTokens:level==="hint"?900:1400}
     };
     const primary=selectModel(env.GEMINI_MODEL);
     const models=[primary,...["gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-3.5-flash"].filter(m=>m!==primary)];
@@ -124,8 +139,32 @@ export default {
         }
         const data=await upstream.json().catch(()=>({}));
         if(upstream.ok){
-          const answer=extractAnswer(data);
-          if(answer)return json({answer,model,fallback:model!==primary},200,origin,allowed);
+          let answer=extractAnswer(data);
+          if(answer){
+            let rewritten=false;
+            if(violatesTutorPolicy(answer)){
+              const repairPayload={
+                system_instruction:{parts:[{text:"Bạn là bộ lọc sư phạm. Viết lại nội dung thành GỢI Ý cho học sinh: không code fence, không code/pseudocode hoàn chỉnh, không đáp án cuối; chỉ giữ 1 bước gợi mở, 1-2 câu hỏi và việc học sinh cần tự làm tiếp. Trả lời tiếng Việt, Markdown sạch."}]},
+                contents:[{role:"user",parts:[{text:"Câu hỏi của học sinh:\n"+message+"\n\nNội dung cần viết lại:\n"+answer}]}],
+                generationConfig:{temperature:0.1,maxOutputTokens:900}
+              };
+              try{
+                const repair=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+                  method:"POST",headers:{"content-type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(repairPayload)
+                });
+                const repairData=await repair.json().catch(()=>({}));
+                if(repair.ok){
+                  const fixed=extractAnswer(repairData);
+                  if(fixed&&!violatesTutorPolicy(fixed)){answer=fixed;rewritten=true}
+                }
+              }catch{}
+            }
+            if(violatesTutorPolicy(answer)){
+              answer="Mình sẽ không đưa lời giải hoàn chỉnh. Em hãy bắt đầu bằng cách xác định constraints và tự hỏi: với giới hạn đó, độ phức tạp nào là chấp nhận được? Từ đó em thử nghĩ một cách đơn giản nhất trước, rồi gửi lại ý tưởng của em để mình gợi ý bước tiếp theo.";
+              rewritten=true;
+            }
+            return json({answer,model,fallback:model!==primary,rewritten,level},200,origin,allowed);
+          }
           lastStatus=502;lastDetail="Gemini không trả về nội dung.";
           break;
         }
