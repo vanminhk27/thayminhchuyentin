@@ -1,0 +1,54 @@
+name: AI Tutor checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/ai-code-tutor]
+
+jobs:
+  worker-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+      - run: node --check src/index.js
+      - run: node --check ../docs/assets/ai-code-tutor.js
+      - name: Production Worker smoke test
+        run: |
+          node - <<'NODE'
+          const r = await fetch("https://thayminhchuyentin.vanminhk-27.workers.dev/api/ai-tutor", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "Origin": "https://thayminhchuyentin.io.vn"
+            },
+            body: JSON.stringify({
+              message: "Trả lời đúng một dòng: 2 + 3 bằng bao nhiêu?",
+              language: "python",
+              level: "hint",
+              history: []
+            })
+          });
+          const text = await r.text();
+          if (!r.ok) {
+            console.error("Worker status:", r.status);
+            console.error(text);
+            process.exit(1);
+          }
+          const data = JSON.parse(text);
+          if (!data.answer || data.answer.length < 1) {
+            console.error("Missing answer:", data);
+            process.exit(1);
+          }
+          console.log("Worker/Gemini smoke test OK");
+          console.log("Model:", data.model);
+          console.log("Answer length:", data.answer.length);
+          NODE
