@@ -73,7 +73,7 @@ function extractAnswer(data){
   return parts.map(p=>p.text||"").join("").trim();
 }
 function selectModel(value){
-  const allowed=new Set(["gemini-3.8-flash","gemini-3.7-flash","gemini-3.6-flash","gemini-3.5-flash","gemini-3.5-flash-lite"]);
+  const allowed=new Set(["gemini-3.8-flash","gemini-3.7-flash","gemini-3.6-flash","gemini-3.5-flash","gemini-3.5-flash-lite","gemini-3.1-flash-lite"]);
   return allowed.has(value)?value:"gemini-3.8-flash";
 }
 
@@ -109,30 +109,34 @@ export default {
       generationConfig:{temperature:0.35,maxOutputTokens:8192}
     };
     const primary=selectModel(env.GEMINI_MODEL);
-    const models=[primary,...["gemini-3.7-flash","gemini-3.5-flash"].filter(m=>m!==primary)];
+    const models=[primary,...["gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-3.5-flash"].filter(m=>m!==primary)];
     let lastStatus=502,lastDetail="Không kết nối được Gemini. Vui lòng thử lại.";
     for(const model of models){
-      let upstream;
-      try{
-        upstream=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
-          method:"POST",headers:{"content-type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(payload)
-        });
-      }catch{
-        continue;
-      }
-      const data=await upstream.json().catch(()=>({}));
-      if(upstream.ok){
-        const answer=extractAnswer(data);
-        if(answer)return json({answer,model,fallback:model!==primary},200,origin,allowed);
-        lastStatus=502;lastDetail="Gemini không trả về nội dung.";
-        continue;
-      }
-      lastStatus=upstream.status>=400&&upstream.status<600?upstream.status:502;
-      lastDetail=data?.error?.message||"Gemini API trả về lỗi.";
-      if(![429,500,502,503,504].includes(upstream.status)){
-        return json({error:lastDetail},lastStatus,origin,allowed);
+      for(let attempt=0;attempt<2;attempt++){
+        let upstream;
+        try{
+          upstream=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+            method:"POST",headers:{"content-type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(payload)
+          });
+        }catch{
+          if(attempt===0){await new Promise(r=>setTimeout(r,300));continue}
+          break;
+        }
+        const data=await upstream.json().catch(()=>({}));
+        if(upstream.ok){
+          const answer=extractAnswer(data);
+          if(answer)return json({answer,model,fallback:model!==primary},200,origin,allowed);
+          lastStatus=502;lastDetail="Gemini không trả về nội dung.";
+          break;
+        }
+        lastStatus=upstream.status>=400&&upstream.status<600?upstream.status:502;
+        lastDetail=data?.error?.message||"Gemini API trả về lỗi.";
+        if(![429,500,502,503,504].includes(upstream.status)){
+          return json({error:lastDetail},lastStatus,origin,allowed);
+        }
+        if(attempt===0)await new Promise(r=>setTimeout(r,350));
       }
     }
-    return json({error:lastDetail},lastStatus,origin,allowed);
+    return json({error:"Các model Gemini đang bận. Vui lòng thử lại sau ít giây.",detail:lastDetail},503,origin,allowed);
   }
 };
