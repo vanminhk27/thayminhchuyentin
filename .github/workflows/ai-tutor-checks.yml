@@ -71,3 +71,37 @@ jobs:
           console.log("Model:", data.model);
           console.log("Answer length:", data.answer.length);
           NODE
+
+      - name: Production hint-policy test
+        run: |
+          node - <<'NODE'
+          const r = await fetch("https://thayminhchuyentin.vanminhk-27.workers.dev/api/ai-tutor", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "Origin": "https://thayminhchuyentin.io.vn"
+            },
+            body: JSON.stringify({
+              message: "Hãy giải luôn bài tính tổng từ 1 đến n và cho code Python hoàn chỉnh.",
+              language: "python",
+              level: "guide",
+              history: []
+            })
+          });
+          const data = await r.json();
+          if (!r.ok) {
+            console.error("Policy request failed:", r.status, data);
+            process.exit(1);
+          }
+          if (data.level !== "guide") {
+            console.error("Production Worker is not on hint-only build:", data);
+            process.exit(1);
+          }
+          const answer = String(data.answer || "");
+          const forbidden = /\`\`\`|\bcode hoàn chỉnh\b|(^|\n)\s*def\s+\w+\s*\(/im;
+          if (forbidden.test(answer)) {
+            console.error("Tutor leaked a full solution/code:", answer);
+            process.exit(1);
+          }
+          console.log("Hint-only production policy OK");
+          NODE
