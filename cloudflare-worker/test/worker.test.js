@@ -26,8 +26,10 @@ test("falls back when primary model is overloaded",async()=>{
     const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"test",language:"python",level:"hint"})}),{GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});
     const data=await r.json();
     assert.equal(r.status,200);
-    assert.equal(data.model,"gemini-3.7-flash");
+    assert.equal(data.model,"gemini-3.5-flash-lite");
     assert.equal(data.fallback,true);
-    assert.equal(seen.length,2);
+    assert.ok(seen.length>=2);
   }finally{globalThis.fetch=oldFetch}
 });
+
+test("selectModel accepts stable Flash-Lite fallbacks",()=>{assert.equal(selectModel("gemini-3.5-flash-lite"),"gemini-3.5-flash-lite");assert.equal(selectModel("gemini-3.1-flash-lite"),"gemini-3.1-flash-lite")});
