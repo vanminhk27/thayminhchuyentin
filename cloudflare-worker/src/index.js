@@ -89,22 +89,31 @@ export default {
       contents:toGeminiContents(body.history,message,image),
       generationConfig:{temperature:0.35,maxOutputTokens:8192}
     };
-    const model=selectModel(env.GEMINI_MODEL);
-    let upstream;
-    try{
-      upstream=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
-        method:"POST",headers:{"content-type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(payload)
-      });
-    }catch{
-      return json({error:"Không kết nối được Gemini. Vui lòng thử lại."},502,origin,allowed);
+    const primary=selectModel(env.GEMINI_MODEL);
+    const models=[primary,...["gemini-3.7-flash","gemini-3.5-flash"].filter(m=>m!==primary)];
+    let lastStatus=502,lastDetail="Không kết nối được Gemini. Vui lòng thử lại.";
+    for(const model of models){
+      let upstream;
+      try{
+        upstream=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+          method:"POST",headers:{"content-type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(payload)
+        });
+      }catch{
+        continue;
+      }
+      const data=await upstream.json().catch(()=>({}));
+      if(upstream.ok){
+        const answer=extractAnswer(data);
+        if(answer)return json({answer,model,fallback:model!==primary},200,origin,allowed);
+        lastStatus=502;lastDetail="Gemini không trả về nội dung.";
+        continue;
+      }
+      lastStatus=upstream.status>=400&&upstream.status<600?upstream.status:502;
+      lastDetail=data?.error?.message||"Gemini API trả về lỗi.";
+      if(![429,500,502,503,504].includes(upstream.status)){
+        return json({error:lastDetail},lastStatus,origin,allowed);
+      }
     }
-    const data=await upstream.json().catch(()=>({}));
-    if(!upstream.ok){
-      const detail=data?.error?.message||"Gemini API trả về lỗi.";
-      return json({error:detail},upstream.status>=400&&upstream.status<600?upstream.status:502,origin,allowed);
-    }
-    const answer=extractAnswer(data);
-    if(!answer)return json({error:"Gemini không trả về nội dung."},502,origin,allowed);
-    return json({answer,model},200,origin,allowed);
+    return json({error:lastDetail},lastStatus,origin,allowed);
   }
 };
