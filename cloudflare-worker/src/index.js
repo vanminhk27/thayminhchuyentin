@@ -55,7 +55,7 @@ Nguyên tắc:
 - Với C++, mặc định C++17; chú ý long long, iterator/index và UB.
 - Không bịa dữ kiện đề bài. Nếu ảnh/đề thiếu hoặc mờ, nêu rõ phần chưa đọc được.
 - Với mức chi tiết cao nhất, có thể đưa lời giải và code hoàn chỉnh nhưng phải giải thích tư duy, chứng minh và kiểm thử.
-- Trình bày có tiêu đề ngắn, dùng Markdown; code đặt trong code fence đúng ngôn ngữ.`;
+- Trình bày có tiêu đề ngắn, dùng Markdown; văn bản và tiêu đề phải bắt đầu sát lề trái, không thụt 4 dấu cách.\n- Không bọc toàn bộ câu trả lời trong code fence; chỉ code thật mới đặt trong code fence đúng ngôn ngữ.\n- Công thức toán phải dùng \\( ... \\) khi nằm trong dòng hoặc \\[ ... \\] khi đứng riêng; không để lệnh LaTeX trần.`;
 }
 function toGeminiContents(history,message,image){
   const contents=[];
