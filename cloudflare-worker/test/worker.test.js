@@ -4,7 +4,7 @@ import worker,{parseImage,systemPrompt,toGeminiContents,extractAnswer,selectMode
 
 test("parseImage accepts jpeg data URL",()=>{const x=parseImage("data:image/jpeg;base64,QUJD");assert.equal(x.mimeType,"image/jpeg");assert.equal(x.data,"QUJD")});
 test("parseImage rejects non-image",()=>assert.throws(()=>parseImage("data:text/plain;base64,QUJD")));
-test("system prompt uses selected language and level",()=>{const p=systemPrompt("python","max");assert.match(p,/Python/);assert.match(p,/cực kỳ chi tiết/)});
+test("system prompt uses selected language and level",()=>{const p=systemPrompt("python","guide");assert.match(p,/Python/);assert.match(p,/Hướng dẫn từng bước/);assert.match(p,/không phải máy giải bài/)});
 test("history maps roles for Gemini",()=>{const c=toGeminiContents([{role:"user",text:"a"},{role:"model",text:"b"}],"c",null);assert.deepEqual(c.map(x=>x.role),["user","model","user"])});
 test("extractAnswer joins text parts",()=>assert.equal(extractAnswer({candidates:[{content:{parts:[{text:"A"},{text:"B"}]}}]}),"AB"));
 test("health endpoint works without key",async()=>{const r=await worker.fetch(new Request("https://x/health"),{GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});assert.equal(r.status,200);assert.equal((await r.json()).ok,true)});
