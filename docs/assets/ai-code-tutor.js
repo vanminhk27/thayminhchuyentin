@@ -205,8 +205,8 @@ function repairMalformedMath(text){
 }
 function normalizeProgrammingMath(text){
   return String(text==null?"":text)
-    .replace(/\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\\(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\s*\)/g,"`$1 % $2`")
-    .replace(/\b([A-Za-z][A-Za-z0-9_]*)\s*\\(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\b/g,"`$1 % $2`")
+    .replace(/\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\s*\)/g,"`$1 % $2`")
+    .replace(/\b([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\b/g,"`$1 % $2`")
     .replace(/\(\s*([A-Za-z])\s*\)/g,"\\($1\\)");
 }
 function normalizeBareLatex(text){
