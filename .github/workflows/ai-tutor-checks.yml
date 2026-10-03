@@ -106,6 +106,33 @@ jobs:
           console.log("Hint-only production policy OK");
           NODE
 
+      - name: Wait for upgraded production deployment
+        run: |
+          node - <<'NODE'
+          const health="https://thayminhchuyentin.vanminhk-27.workers.dev/health";
+          const page="https://thayminhchuyentin.io.vn/ai-goi-y-code.html";
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          let last="";
+          for(let i=0;i<24;i++){
+            try{
+              const [hr,pr]=await Promise.all([fetch(health,{cache:"no-store"}),fetch(page,{cache:"no-store"})]);
+              const h=await hr.json().catch(()=>({}));
+              const html=await pr.text();
+              const workerOk=hr.ok&&h.promptVersion==="2026-10-03-r2";
+              const pageOk=pr.ok&&html.includes('id="conversationList"')&&html.includes("tmct_ai_tutor")===false&&html.includes("20261003-history-r3");
+              last=JSON.stringify({workerStatus:hr.status,promptVersion:h.promptVersion,pageStatus:pr.status,workerOk,pageOk});
+              if(workerOk&&pageOk){
+                console.log("Upgraded production deployment OK",last);
+                process.exit(0);
+              }
+            }catch(e){last=String(e)}
+            console.log("Waiting for deployment",i+1,last);
+            await sleep(5000);
+          }
+          console.error("Upgraded production did not become ready:",last);
+          process.exit(1);
+          NODE
+
       - name: Production concurrency test
         run: |
           node - <<'NODE'
