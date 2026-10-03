@@ -172,8 +172,8 @@ test("programming modulo notation is normalized before KaTeX",()=>{
   const fn=(0,eval)("("+js.slice(start,end).trim()+")");
   const raw="UCLN của ( a ) và ( b ) cũng là UCLN của ( b ) và ( a \\\\pmod b ).";
   const fixed=fn(raw);
-  assert.equal(fixed.includes("\\\\(a\\\\)"),true);
-  assert.equal(fixed.includes("\\\\(b\\\\)"),true);
+  assert.equal(fixed.includes("\\(a\\)"),true);
+  assert.equal(fixed.includes("\\(b\\)"),true);
   assert.equal(fixed.includes("`a % b`"),true);
-  assert.equal(fixed.includes("\\\\pmod"),false);
+  assert.equal(fixed.includes("\\pmod"),false);
 });
