@@ -61,3 +61,28 @@ test("frontend prompt forbids nested math delimiters",()=>{
   assert.match(js,/Không lồng các delimiter toán vào nhau/);
   assert.match(js,/repairMalformedMath/);
 });
+
+test("visual math editor is wired",()=>{
+  assert.match(html,/id="openMath"/);
+  assert.match(html,/id="mathDialog"/);
+  assert.match(html,/<math-field id="mathField"/);
+  assert.match(html,/mathlive@0\.110\.0/);
+  assert.match(html,/data-latex="\\frac\{#\?\}\{#\?\}"/);
+  assert.match(js,/setupMathEditor\(\)/);
+  assert.match(js,/insertFormulaIntoPrompt/);
+});
+
+test("MathLive loads before tutor application",()=>{
+  const mathlive=html.indexOf("mathlive@0.110.0");
+  const app=html.indexOf("assets/ai-code-tutor.js");
+  assert.ok(mathlive>=0&&app>=0&&mathlive<app);
+});
+
+test("formula insertion uses safe inline math delimiters",()=>{
+  const start=js.indexOf("function insertFormulaIntoPrompt");
+  const end=js.indexOf("function setupMathEditor",start);
+  assert.ok(start>=0&&end>start);
+  const src=js.slice(start,end);
+  assert.match(src,/const wrapped="\\\\\("/);
+  assert.match(src,/\+"\\\\\)"|value\+"\\\\\)"/);
+});
