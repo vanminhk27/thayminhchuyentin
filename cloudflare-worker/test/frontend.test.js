@@ -165,15 +165,4 @@ test("stored history is bounded to protect browser quota",()=>{
 });
 
 
-test("programming modulo notation is normalized before KaTeX",()=>{
-  const start=js.indexOf("function normalizeProgrammingMath");
-  const end=js.indexOf("function normalizeBareLatex",start);
-  assert.ok(start>=0&&end>start);
-  const fn=(0,eval)("("+js.slice(start,end).trim()+")");
-  const raw="UCLN của ( a ) và ( b ) cũng là UCLN của ( b ) và ( a \\\\pmod b ).";
-  const fixed=fn(raw);
-  assert.match(fixed,/\\\\\(a\\\\\)/);
-  assert.match(fixed,/\\\\\(b\\\\\)/);
-  assert.match(fixed,/`a % b`/);
-  assert.doesNotMatch(fixed,/\\\\pmod/);
-});
+test("programming modulo notation is normalized before KaTeX",()=>{\n  const start=js.indexOf("function normalizeProgrammingMath");\n  const end=js.indexOf("function normalizeBareLatex",start);\n  assert.ok(start>=0&&end>start);\n  const fn=(0,eval)("("+js.slice(start,end).trim()+")");\n  const raw="UCLN của ( a ) và ( b ) cũng là UCLN của ( b ) và ( a \\\\pmod b ).";\n  const fixed=fn(raw);\n  assert.equal(fixed.includes("\\\\(a\\\\)"),true);\n  assert.equal(fixed.includes("\\\\(b\\\\)"),true);\n  assert.equal(fixed.includes("`a % b`"),true);\n  assert.equal(fixed.includes("\\\\pmod"),false);\n});
