@@ -20,9 +20,9 @@ test("history is visible instead of replacing one answer box",()=>{
   assert.doesNotMatch(html,/id="answer"/);
 });
 
-test("reset starts a new session and aborts stale request",()=>{
+test("new conversation starts a new session and aborts stale request",()=>{
   assert.match(js,/sessionVersion\+=1/);
-  assert.match(js,/sessionId=newId\(\)/);
+  assert.match(js,/const c=makeConversation\(\)/);
   assert.match(js,/active&&active\.controller/);
   assert.match(js,/active\.controller\.abort\(\)/);
   assert.match(js,/version!==sessionVersion/);
@@ -115,4 +115,51 @@ test("follow-up sends only follow-up text, not entire original prompt again",()=
   assert.match(js,/ask\(q,"follow"\)/);
   assert.match(js,/message:text/);
   assert.match(js,/image:kind==="main"\?imageData:null/);
+});
+
+test("conversation history persists in localStorage",()=>{
+  assert.match(js,/tmct_ai_tutor_conversations_v1/);
+  assert.match(js,/localStorage\.setItem\(STORAGE_KEY/);
+  assert.match(js,/localStorage\.getItem\(STORAGE_KEY/);
+  assert.match(js,/saveCurrentConversation/);
+  assert.match(js,/restoreConversation/);
+});
+
+test("problem code language and hint level are restored",()=>{
+  assert.match(js,/c\.prompt=String\(prompt\.value/);
+  assert.match(js,/c\.language=language\.value/);
+  assert.match(js,/c\.level=level\.value/);
+  assert.match(js,/prompt\.value=c\.prompt/);
+  assert.match(js,/language\.value=c\.language/);
+  assert.match(js,/level\.value=c\.level/);
+});
+
+test("new chat preserves old conversations instead of clearing storage",()=>{
+  assert.match(js,/function createNewConversation/);
+  assert.match(js,/saveCurrentConversation\(false\)/);
+  assert.doesNotMatch(js,/localStorage\.clear\(/);
+  assert.doesNotMatch(js,/removeItem\(STORAGE_KEY\)/);
+});
+
+test("conversation sidebar is present and supports delete/open",()=>{
+  assert.match(html,/id="conversationList"/);
+  assert.match(html,/id="newChat"/);
+  assert.match(html,/Lịch sử/);
+  assert.match(js,/conversationOpen/);
+  assert.match(js,/conversationDelete/);
+  assert.match(js,/deleteConversation/);
+});
+
+test("images are not persisted in browser history",()=>{
+  const saveStart=js.indexOf("function saveCurrentConversation");
+  const saveEnd=js.indexOf("function scheduleSave",saveStart);
+  const saveSrc=js.slice(saveStart,saveEnd);
+  assert.doesNotMatch(saveSrc,/imageData/);
+  assert.match(js,/Ảnh chỉ dùng cho phiên hiện tại và không lưu/);
+});
+
+test("stored history is bounded to protect browser quota",()=>{
+  assert.match(js,/MAX_CONVERSATIONS=24/);
+  assert.match(js,/MAX_STORED_TURNS=40/);
+  assert.match(js,/slice\(-MAX_STORED_TURNS\)/);
 });
