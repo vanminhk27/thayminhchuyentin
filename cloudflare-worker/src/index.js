@@ -1,19 +1,37 @@
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
+const PROMPT_VERSION="2026-10-03-r2";
 const LEVELS={
-  hint:"Chỉ đưa 1 gợi ý nhỏ và 1-2 câu hỏi dẫn dắt. Không nêu lời giải, tên thuật toán tối ưu, công thức cuối, pseudocode hay code.",
-  guide:"Hướng dẫn từng bước nhưng dừng trước lời giải hoàn chỉnh. Mỗi lượt chỉ mở thêm một bước suy luận và kết thúc bằng câu hỏi hoặc việc học sinh cần tự làm tiếp."
+  hint:"Chỉ một gợi ý ngắn, có thể một phản ví dụ nhỏ, rồi kết thúc bằng đúng một câu hỏi cụ thể.",
+  guide:"Chỉ trình bày bước hiện tại, không liệt kê trước các bước sau; dừng lại và chờ học sinh phản hồi."
 };
-function normalizeLevel(level){
-  return level==="hint"?"hint":"guide";
+const LIMITS={message:24000,historyTurns:6,imageBase64:7_000_000,sessionPerMinute:8,globalPerMinute:120};
+const sessionWindows=new Map();
+const inFlightSessions=new Set();
+
+function normalizeLevel(level){return level==="hint"?"hint":"guide"}
+function sanitizeId(value,max=96){return String(value||"").replace(/[^A-Za-z0-9._:-]/g,"").slice(0,max)}
+function detectCodeLanguage(text){
+  const s=String(text||"");
+  if(/#include\s*<|std::|vector\s*<|cout\s*<<|cin\s*>>|int\s+main\s*\(/.test(s))return "cpp";
+  if(/(^|\n)\s*(def\s+\w+\s*\(|from\s+\w+\s+import|import\s+\w+|print\s*\(|for\s+\w+\s+in\s+range\s*\()/m.test(s))return "python";
+  return "unknown";
+}
+function languageConflict(selected,text){
+  const detected=detectCodeLanguage(text);
+  if(selected==="python"&&detected==="cpp")return {selected,detected};
+  if(selected==="cpp"&&detected==="python")return {selected,detected};
+  return null;
+}
+function wantsSmallTestResult(text){
+  return /\b(kết quả|đáp án)\b.{0,30}\b(test|ví dụ)|\b(test|ví dụ)\b.{0,30}\b(kết quả|ra bao nhiêu)|cho\s+(?:em\s+)?kết quả/i.test(String(text||""));
 }
 function violatesTutorPolicy(text){
   const s=String(text||"");
-  if(/\`\`\`/.test(s))return true;
+  if(s.includes(String.fromCharCode(96).repeat(3)))return true;
   if(/(^|\n)\s*(?:def\s+\w+\s*\(|class\s+\w+|#include\s*<|int\s+main\s*\(|for\s*\([^\n]+\)\s*\{|while\s*\([^\n]+\)\s*\{)/m.test(s))return true;
   if(/\b(?:code hoàn chỉnh|lời giải hoàn chỉnh|đáp án hoàn chỉnh|pseudocode đầy đủ|thuật toán đầy đủ)\b/i.test(s))return true;
   return false;
 }
-
 function normalizeOrigin(value){
   return String(value||"").trim().replace(/\/+$/,"");
 }
