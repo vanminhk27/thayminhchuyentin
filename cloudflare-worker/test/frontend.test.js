@@ -67,7 +67,7 @@ test("visual math editor is wired",()=>{
   assert.match(html,/id="mathDialog"/);
   assert.match(html,/<math-field id="mathField"/);
   assert.match(html,/mathlive@0\.110\.0/);
-  assert.match(html,/data-latex="\\frac\{#\?\}\{#\?\}"/);
+    assert.ok(html.includes('data-latex="\\frac{#?}{#?}"'));
   assert.match(js,/setupMathEditor\(\)/);
   assert.match(js,/insertFormulaIntoPrompt/);
 });
@@ -85,4 +85,9 @@ test("formula insertion uses safe inline math delimiters",()=>{
   const src=js.slice(start,end);
   assert.match(src,/const wrapped="\\\\\("/);
   assert.match(src,/\+"\\\\\)"|value\+"\\\\\)"/);
+});
+
+test("rejects doubled MathLive command slashes",()=>{
+  assert.equal(html.includes('data-latex="\\\\frac'),false);
+  assert.equal(html.includes('data-latex="\\\\sqrt'),false);
 });
