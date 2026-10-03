@@ -124,14 +124,19 @@ function stripJsonFence(text){
   if(s.endsWith(fence))s=s.slice(0,-fence.length);
   return s.trim();
 }
+function normalizeTutorText(value){
+  return String(value||"")
+    .replace(/\(?\s*([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\s*\)?/g,"`$1 % $2`")
+    .trim();
+}
 function normalizeStructured(obj={}){
   const out={
-    observation:String(obj.observation||"").trim().slice(0,1500),
-    hint:String(obj.hint||"").trim().slice(0,1800),
-    check_test:String(obj.check_test||"").trim().slice(0,900),
-    next_question:String(obj.next_question||"").trim().slice(0,700),
+    observation:normalizeTutorText(obj.observation).slice(0,1500),
+    hint:normalizeTutorText(obj.hint).slice(0,1800),
+    check_test:normalizeTutorText(obj.check_test).slice(0,900),
+    next_question:normalizeTutorText(obj.next_question).slice(0,700),
     needs_clarification:Boolean(obj.needs_clarification),
-    clarification_question:String(obj.clarification_question||"").trim().slice(0,700)
+    clarification_question:normalizeTutorText(obj.clarification_question).slice(0,700)
   };
   if(out.needs_clarification){
     out.hint=""; out.check_test=""; out.next_question="";
@@ -238,7 +243,7 @@ function telemetry(info){
 
 export {
   parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,
-  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,repairJsonBackslashes,parseTutorResponse,
+  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,normalizeTutorText,repairJsonBackslashes,parseTutorResponse,
   structuredText,bestEffortRateLimit,dailyQuotaError,staticFallback
 };
 
