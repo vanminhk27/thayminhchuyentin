@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker,{
   parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,
-  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,parseTutorResponse,
+  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,repairJsonBackslashes,parseTutorResponse,
   structuredText,bestEffortRateLimit,dailyQuotaError,staticFallback
 } from "../src/index.js";
 
@@ -232,4 +232,22 @@ test("static fallback is still a hint, not a solution",()=>{
   assert.ok(f.hint);
   assert.ok(f.next_question);
   assert.equal(violatesTutorPolicy(structuredText(f)),false);
+});
+
+
+test("malformed Gemini JSON with LaTeX is repaired instead of leaking internal keys",()=>{
+  const raw="{\n\"observation\":\"Em chưa nắm rõ cách dùng phép chia lấy dư để tìm UCLN.\",\n\"hint\":\"UCLN của ( a ) và ( b ) cũng là UCLN của ( b ) và ( a \\pmod b ).\",\n\"check_test\":\"\",\n\"next_question\":\"Khi số dư bằng 0 thì số nào là UCLN?\",\n\"needs_clarification\":false,\n\"clarification_question\":\"\"\n}";
+  const repaired=repairJsonBackslashes(raw);
+  assert.match(repaired,/\\\\pmod/);
+  const parsed=parseTutorResponse(raw);
+  assert.equal(parsed.observation,"Em chưa nắm rõ cách dùng phép chia lấy dư để tìm UCLN.");
+  assert.match(parsed.hint,/\\pmod/);
+  assert.doesNotMatch(parsed.hint,/"observation"/);
+  assert.equal(parsed.next_question,"Khi số dư bằng 0 thì số nào là UCLN?");
+});
+
+test("prompt tells Gemini to avoid pmod for programming remainder",()=>{
+  const p=systemPrompt("python","hint");
+  assert.match(p,/a % b/);
+  assert.match(p,/KHÔNG dùng \\\\pmod/);
 });
