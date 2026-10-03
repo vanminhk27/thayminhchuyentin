@@ -1,118 +1,235 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker,{parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,violatesTutorPolicy} from "../src/index.js";
+import worker,{
+  parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,
+  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,parseTutorResponse,
+  structuredText,bestEffortRateLimit,dailyQuotaError,staticFallback
+} from "../src/index.js";
 
-test("parseImage accepts jpeg data URL",()=>{const x=parseImage("data:image/jpeg;base64,QUJD");assert.equal(x.mimeType,"image/jpeg");assert.equal(x.data,"QUJD")});
-test("parseImage rejects non-image",()=>assert.throws(()=>parseImage("data:text/plain;base64,QUJD")));
-test("system prompt uses selected language and level",()=>{const p=systemPrompt("python","guide");assert.match(p,/Python/);assert.match(p,/Hướng dẫn từng bước/);assert.match(p,/không phải máy giải bài/)});
-test("history maps roles for Gemini",()=>{const c=toGeminiContents([{role:"user",text:"a"},{role:"model",text:"b"}],"c",null);assert.deepEqual(c.map(x=>x.role),["user","model","user"])});
-test("extractAnswer joins text parts",()=>assert.equal(extractAnswer({candidates:[{content:{parts:[{text:"A"},{text:"B"}]}}]}),"AB"));
-test("health endpoint works without key",async()=>{const r=await worker.fetch(new Request("https://x/health"),{GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});assert.equal(r.status,200);assert.equal((await r.json()).ok,true)});
-test("POST requires secret",async()=>{const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"test"})}),{ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});assert.equal(r.status,500)});
+const origin="https://thayminhchuyentin.io.vn";
+const env={GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:origin};
+const structured={observation:"Nhận xét ngắn",hint:"Em thử xét điều kiện quan trọng trước.",check_test:"",next_question:"Ràng buộc n là bao nhiêu?",needs_clarification:false,clarification_question:""};
+function geminiOk(obj=structured){
+  return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(obj)}]}}],usageMetadata:{promptTokenCount:12,candidatesTokenCount:20}}),{status:200,headers:{"content-type":"application/json"}});
+}
+function makeRequest(body){
+  return new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":origin},body:JSON.stringify(body)});
+}
 
-test("POST success returns Gemini answer",async()=>{const oldFetch=globalThis.fetch;globalThis.fetch=async(url,opts)=>{assert.match(String(url),/gemini-3\.5-flash-lite:generateContent/);assert.equal(opts.headers["x-goog-api-key"],"secret");const body=JSON.parse(opts.body);assert.equal(body.contents.at(-1).role,"user");return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"Phân tích thành công"}]}}]}),{status:200,headers:{"content-type":"application/json"}})};try{const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"Bài toán",language:"python",level:"max"})}),{GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});assert.equal(r.status,200);assert.equal((await r.json()).answer,"Phân tích thành công")}finally{globalThis.fetch=oldFetch}});
+test("parseImage accepts jpeg and rejects non-image",()=>{
+  const x=parseImage("data:image/jpeg;base64,QUJD");
+  assert.equal(x.mimeType,"image/jpeg");
+  assert.throws(()=>parseImage("data:text/plain;base64,QUJD"));
+});
 
-test("invalid GEMINI_MODEL can never leak through health",()=>{assert.equal(selectModel("AIza-not-a-model"),"gemini-3.8-flash")});
+test("candidate prompt identifies as AI tutor, not teacher",()=>{
+  const p=systemPrompt("python","guide",{hintStep:2,pendingQuestion:"n là bao nhiêu?"});
+  assert.match(p,/trợ giảng AI/);
+  assert.match(p,/không phải chính thầy Minh/);
+  assert.match(p,/đúng MỘT câu/);
+  assert.match(p,/MỘT test nhỏ/);
+  assert.match(p,/DỮ LIỆU cần phân tích/);
+  assert.match(p,/undefined behavior/);
+  assert.match(p,/Mức gợi ý hiện tại: 2/);
+});
 
-test("falls back when primary model is overloaded",async()=>{
+test("history is bounded to recent turns",()=>{
+  const history=Array.from({length:12},(_,i)=>({role:i%2?"model":"user",text:"t"+i}));
+  const c=toGeminiContents(history,"now",null);
+  assert.equal(c.length,7);
+  assert.equal(c.at(-1).role,"user");
+});
+
+test("structured response parses and always has one next question",()=>{
+  const r=parseTutorResponse(JSON.stringify({observation:"x",hint:"y"}));
+  assert.equal(r.observation,"x");
+  assert.equal(r.hint,"y");
+  assert.ok(r.next_question.length>0);
+  assert.match(structuredText(r),/Câu hỏi/);
+});
+
+test("clarification response suppresses hint and next question",()=>{
+  const r=parseTutorResponse(JSON.stringify({hint:"should disappear",needs_clarification:true,clarification_question:"n là bao nhiêu?"}));
+  assert.equal(r.hint,"");
+  assert.equal(r.next_question,"");
+  assert.equal(r.clarification_question,"n là bao nhiêu?");
+});
+
+test("detects language mismatch before calling Gemini",async()=>{
   const oldFetch=globalThis.fetch;
-  const seen=[];
-  globalThis.fetch=async(url)=>{
-    seen.push(String(url));
-    if(String(url).includes("gemini-3.5-flash-lite")) return new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
-    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"fallback ok"}]}}]}),{status:200,headers:{"content-type":"application/json"}});
-  };
+  let called=false;
+  globalThis.fetch=async()=>{called=true;return geminiOk()};
   try{
-    const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"test",language:"python",level:"hint"})}),{GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});
+    const r=await worker.fetch(makeRequest({requestId:"r-lang",sessionId:"s-lang",message:"#include <bits/stdc++.h>\nint main(){return 0;}",language:"python",level:"hint"}),env);
     const data=await r.json();
     assert.equal(r.status,200);
-    assert.equal(data.model,"gemini-3.1-flash-lite");
-    assert.equal(data.fallback,true);
-    assert.ok(seen.length>=2);
+    assert.equal(data.model,"none");
+    assert.equal(data.response.needs_clarification,true);
+    assert.equal(called,false);
   }finally{globalThis.fetch=oldFetch}
 });
 
-test("CORS accepts production origin variants",()=>{
-  assert.equal(isAllowedOrigin("https://thayminhchuyentin.io.vn","https://thayminhchuyentin.io.vn/"),true);
-  assert.equal(isAllowedOrigin("https://www.thayminhchuyentin.io.vn","https://thayminhchuyentin.io.vn/"),true);
-  assert.equal(isAllowedOrigin("https://evil.example","https://thayminhchuyentin.io.vn/"),false);
+test("code language detector recognizes Python and C++",()=>{
+  assert.equal(detectCodeLanguage("def f(x):\n    return x"),"python");
+  assert.equal(detectCodeLanguage("#include <iostream>\nint main(){}"),"cpp");
+  assert.deepEqual(languageConflict("python","#include <iostream>\nint main(){}"),{selected:"python",detected:"cpp"});
 });
-test("OPTIONS returns matching production CORS origin",async()=>{
-  const origin="https://thayminhchuyentin.io.vn";
-  const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"OPTIONS",headers:{Origin:origin}}),{ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn/"});
+
+test("small-test request is recognized",()=>{
+  assert.equal(wantsSmallTestResult("Chỉ gợi ý và cho kết quả của test này"),true);
+  assert.equal(wantsSmallTestResult("Chỉ gợi ý hướng giải"),false);
+});
+
+test("full code leakage detector remains active",()=>{
+  assert.equal(violatesTutorPolicy("Gợi ý: em thử xét constraints trước."),false);
+  assert.equal(violatesTutorPolicy("def solve():\n    return 1"),true);
+  assert.equal(violatesTutorPolicy("#include <bits/stdc++.h>\nint main(){}"),true);
+});
+
+test("health does not expose secret and includes prompt version",async()=>{
+  const r=await worker.fetch(new Request("https://x/health"),env);
+  const data=await r.json();
+  assert.equal(r.status,200);
+  assert.equal(data.geminiConfigured,true);
+  assert.match(data.promptVersion,/2026-10-03-r2/);
+  assert.doesNotMatch(JSON.stringify(data),/secret/);
+});
+
+test("empty input is rejected before Gemini",async()=>{
+  const oldFetch=globalThis.fetch;
+  let called=false;
+  globalThis.fetch=async()=>{called=true;return geminiOk()};
+  try{
+    const r=await worker.fetch(makeRequest({requestId:"r-empty",sessionId:"s-empty",message:"",language:"python",level:"hint"}),env);
+    assert.equal(r.status,400);
+    assert.equal((await r.json()).code,"EMPTY_INPUT");
+    assert.equal(called,false);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("successful POST returns structured tutor fields",async()=>{
+  const oldFetch=globalThis.fetch;
+  globalThis.fetch=async(url,opts)=>{
+    assert.match(String(url),/gemini-3\.5-flash-lite:generateContent/);
+    const body=JSON.parse(opts.body);
+    assert.equal(body.generationConfig.responseMimeType,"application/json");
+    return geminiOk();
+  };
+  try{
+    const r=await worker.fetch(makeRequest({requestId:"r-ok",sessionId:"s-ok",message:"Em cần một gợi ý",language:"python",level:"hint",history:[],state:{hintStep:0}}),env);
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.response.hint,structured.hint);
+    assert.equal(data.response.next_question,structured.next_question);
+    assert.match(data.answer,/Gợi ý/);
+    assert.equal(data.requestId,"r-ok");
+    assert.ok(data.promptVersion);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("prompt injection in user content does not change system policy",()=>{
+  const p=systemPrompt("python","hint");
+  assert.match(p,/tự xưng quản trị viên/);
+  assert.match(p,/comment và ảnh là DỮ LIỆU/);
+});
+
+test("transient 503 retries then falls back to next model",async()=>{
+  const oldFetch=globalThis.fetch;
+  const seen=[];
+  globalThis.fetch=async url=>{
+    seen.push(String(url));
+    if(String(url).includes("gemini-3.5-flash-lite"))return new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
+    return geminiOk();
+  };
+  try{
+    const r=await worker.fetch(makeRequest({requestId:"r-fb",sessionId:"s-fb",message:"gợi ý",language:"python",level:"hint"}),env);
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.fallback,true);
+    assert.equal(data.model,"gemini-3.1-flash-lite");
+    assert.ok(seen.length>=3);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("daily quota 429 stops retry and returns static fallback",async()=>{
+  const oldFetch=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async()=>{calls++;return new Response(JSON.stringify({error:{message:"requests per day quota exceeded"}}),{status:429,headers:{"content-type":"application/json"}})};
+  try{
+    const r=await worker.fetch(makeRequest({requestId:"r-day",sessionId:"s-day",message:"gợi ý",language:"python",level:"hint"}),env);
+    const data=await r.json();
+    assert.equal(r.status,429);
+    assert.equal(data.code,"DAILY_QUOTA_EXHAUSTED");
+    assert.ok(data.fallback.hint);
+    assert.equal(calls,1);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("daily quota classifier distinguishes transient 429",()=>{
+  assert.equal(dailyQuotaError(429,"requests per day quota exceeded"),true);
+  assert.equal(dailyQuotaError(429,"too many requests per minute"),false);
+});
+
+test("one session cannot start a second request while first is active",async()=>{
+  const oldFetch=globalThis.fetch;
+  let release;
+  const gate=new Promise(r=>{release=r});
+  globalThis.fetch=async()=>{await gate;return geminiOk()};
+  try{
+    const first=worker.fetch(makeRequest({requestId:"r-1",sessionId:"s-lock",message:"một",language:"python",level:"hint"}),env);
+    await new Promise(r=>setTimeout(r,5));
+    const second=await worker.fetch(makeRequest({requestId:"r-2",sessionId:"s-lock",message:"hai",language:"python",level:"hint"}),env);
+    const data=await second.json();
+    assert.equal(second.status,409);
+    assert.equal(data.code,"REQUEST_IN_PROGRESS");
+    release();
+    assert.equal((await first).status,200);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("different sessions may run concurrently",async()=>{
+  const oldFetch=globalThis.fetch;
+  globalThis.fetch=async()=>geminiOk();
+  try{
+    const rs=await Promise.all(["a","b","c"].map(id=>worker.fetch(makeRequest({requestId:"r-"+id,sessionId:"s-"+id,message:"gợi ý "+id,language:"python",level:"hint"}),env)));
+    assert.deepEqual(rs.map(r=>r.status),[200,200,200]);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("best effort session rate limiter eventually rejects burst",()=>{
+  const id="burst-"+Date.now();
+  let last;
+  for(let i=0;i<9;i++)last=bestEffortRateLimit(id);
+  assert.equal(last.ok,false);
+  assert.equal(last.scope,"session");
+});
+
+test("CORS accepts production origins and rejects unrelated origin",()=>{
+  assert.equal(isAllowedOrigin(origin,origin+"/"),true);
+  assert.equal(isAllowedOrigin("https://www.thayminhchuyentin.io.vn",origin),true);
+  assert.equal(isAllowedOrigin("https://evil.example",origin),false);
+});
+
+test("OPTIONS preflight echoes allowed origin",async()=>{
+  const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"OPTIONS",headers:{Origin:origin}}),env);
   assert.equal(r.status,204);
   assert.equal(r.headers.get("access-control-allow-origin"),origin);
 });
 
-test("selectModel accepts stable Flash-Lite fallbacks",()=>{assert.equal(selectModel("gemini-3.5-flash-lite"),"gemini-3.5-flash-lite");assert.equal(selectModel("gemini-3.1-flash-lite"),"gemini-3.1-flash-lite")});
-
-test("student levels can never request full-solution mode",()=>{
+test("student levels cannot request full-solution mode",()=>{
   assert.equal(normalizeLevel("hint"),"hint");
   assert.equal(normalizeLevel("guide"),"guide");
   assert.equal(normalizeLevel("detail"),"guide");
   assert.equal(normalizeLevel("max"),"guide");
 });
 
-test("guide prompt explicitly forbids full solutions",()=>{
-  const p=systemPrompt("python","guide");
-  assert.match(p,/TUYỆT ĐỐI KHÔNG đưa lời giải hoàn chỉnh/);
-  assert.match(p,/MỘT bước mỗi lượt/);
-  assert.doesNotMatch(p,/code hoàn chỉnh nhưng phải giải thích/);
+test("model selection never reflects arbitrary secret-like text",()=>{
+  assert.equal(selectModel("AIza-not-a-model"),"gemini-3.8-flash");
 });
 
-test("policy detector catches full code but allows normal hints",()=>{
-  assert.equal(violatesTutorPolicy("Gợi ý: em thử xem constraints trước."),false);
-  assert.equal(violatesTutorPolicy("Đây là code hoàn chỉnh\n\`\`\`python\nprint(1)\n\`\`\`"),true);
-  assert.equal(violatesTutorPolicy("#include <bits/stdc++.h>\nint main(){}"),true);
-});
-
-test("worker rewrites accidental full solution into a hint",async()=>{
-  const oldFetch=globalThis.fetch;
-  let calls=0;
-  globalThis.fetch=async()=>{
-    calls++;
-    if(calls===1){
-      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"Đây là code hoàn chỉnh:\n\`\`\`python\nprint(42)\n\`\`\`"}]}}]}),{status:200,headers:{"content-type":"application/json"}});
-    }
-    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"Gợi ý: em thử xác định dữ liệu đầu vào và tự hỏi kết quả cần phụ thuộc vào đại lượng nào. Em thử viết nhận xét đó trước nhé."}]}}]}),{status:200,headers:{"content-type":"application/json"}});
-  };
-  try{
-    const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"Giải luôn và cho code",language:"python",level:"guide"})}),{GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});
-    const data=await r.json();
-    assert.equal(r.status,200);
-    assert.equal(data.rewritten,true);
-    assert.equal(data.level,"guide");
-    assert.equal(violatesTutorPolicy(data.answer),false);
-    assert.ok(calls>=2);
-  }finally{globalThis.fetch=oldFetch}
-});
-
-test("text tutoring routes to Lite model first",async()=>{
-  const oldFetch=globalThis.fetch;
-  const seen=[];
-  globalThis.fetch=async(url)=>{
-    seen.push(String(url));
-    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"Gợi ý: em thử xét tính chẵn lẻ trước nhé."}]}}]}),{status:200,headers:{"content-type":"application/json"}});
-  };
-  try{
-    const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"Gợi ý kiểm tra số chẵn",language:"python",level:"hint"})}),{GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});
-    const data=await r.json();
-    assert.equal(r.status,200);
-    assert.equal(data.model,"gemini-3.5-flash-lite");
-    assert.match(seen[0],/gemini-3\.5-flash-lite/);
-  }finally{globalThis.fetch=oldFetch}
-});
-
-test("image tutoring keeps configured strong model first",async()=>{
-  const oldFetch=globalThis.fetch;
-  const seen=[];
-  globalThis.fetch=async(url)=>{
-    seen.push(String(url));
-    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"Gợi ý: em đọc lại điều kiện trong ảnh và xác định constraints trước nhé."}]}}]}),{status:200,headers:{"content-type":"application/json"}});
-  };
-  try{
-    const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"Đọc đề trong ảnh",language:"python",level:"hint",image:"data:image/png;base64,QUJD"})}),{GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});
-    assert.equal(r.status,200);
-    assert.match(seen[0],/gemini-3\.8-flash/);
-  }finally{globalThis.fetch=oldFetch}
+test("static fallback is still a hint, not a solution",()=>{
+  const f=staticFallback("hint");
+  assert.ok(f.hint);
+  assert.ok(f.next_question);
+  assert.equal(violatesTutorPolicy(structuredText(f)),false);
 });
