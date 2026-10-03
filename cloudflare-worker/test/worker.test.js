@@ -19,14 +19,14 @@ test("falls back when primary model is overloaded",async()=>{
   const seen=[];
   globalThis.fetch=async(url)=>{
     seen.push(String(url));
-    if(String(url).includes("gemini-3.8-flash")) return new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
+    if(String(url).includes("gemini-3.5-flash-lite")) return new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
     return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"fallback ok"}]}}]}),{status:200,headers:{"content-type":"application/json"}});
   };
   try{
     const r=await worker.fetch(new Request("https://x/api/ai-tutor",{method:"POST",headers:{"content-type":"application/json","Origin":"https://thayminhchuyentin.io.vn"},body:JSON.stringify({message:"test",language:"python",level:"hint"})}),{GEMINI_API_KEY:"secret",GEMINI_MODEL:"gemini-3.8-flash",ALLOWED_ORIGIN:"https://thayminhchuyentin.io.vn"});
     const data=await r.json();
     assert.equal(r.status,200);
-    assert.equal(data.model,"gemini-3.5-flash-lite");
+    assert.equal(data.model,"gemini-3.1-flash-lite");
     assert.equal(data.fallback,true);
     assert.ok(seen.length>=2);
   }finally{globalThis.fetch=oldFetch}
