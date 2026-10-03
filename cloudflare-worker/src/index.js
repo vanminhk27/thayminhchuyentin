@@ -69,7 +69,7 @@ QUY TẮC BẮT BUỘC:
 - Mỗi câu trả lời nên kết thúc bằng "Em thử..." hoặc một câu hỏi cụ thể để học sinh tiếp tục suy nghĩ.
 - Trình bày Markdown sạch, không thụt 4 dấu cách đầu dòng.
 - Chỉ dùng code inline rất ngắn nếu cần nhắc tên biến/biểu thức; không dùng code fence.
-- Công thức toán dùng $...$ trong dòng hoặc $$...$$ khi đứng riêng. Không để lệnh LaTeX trần.`;
+- Công thức toán trong dòng phải dùng \\( ... \\); công thức đứng riêng phải dùng \\[ ... \\]. Không dùng dấu $ và không lồng delimiter toán. Không để lệnh LaTeX trần.`;
 }
 function toGeminiContents(history,message,image){
   const contents=[];
