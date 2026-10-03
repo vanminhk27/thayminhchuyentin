@@ -14,6 +14,21 @@ function normalizeTutorMarkdown(input){
   }
   return lines.join("\n").trim();
 }
+function repairMalformedMath(text){
+  const parts=String(text??"").split(/(```[\s\S]*?```)/g);
+  return parts.map((part,i)=>{
+    if(i%2===1)return part;
+    return part.split("\n").map(line=>{
+      const m=line.match(/^(\s*)\$\$([\s\S]*?)\$\$(\s*)$/);
+      if(!m)return line;
+      const inner=m[2].trim();
+      const singleDollarCount=(inner.match(/(?<!\\)\$/g)||[]).length;
+      const prose=/[À-ỹ]/u.test(inner)&&/\b(?:để|tính|bằng|lập trình|ý tưởng|ta|em|với|là|nên|thì|trước khi|cho thầy|hãy)\b/i.test(inner);
+      if(singleDollarCount>=2||prose)return m[1]+inner+m[3];
+      return line;
+    }).join("\n");
+  }).join("");
+}
 function normalizeBareLatex(text){
   const parts=String(text??"").split(/(```[\s\S]*?```)/g);
   return parts.map((part,i)=>{
@@ -24,7 +39,9 @@ function normalizeBareLatex(text){
       if(/(\$\$|\\\[|\\\]|\\\(|\\\))/.test(t))return line;
       const hasLatex=/\\(?:frac|dfrac|tfrac|times|cdot|dots|ldots|cdots|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|neq|approx|infty|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|phi|omega|Rightarrow|rightarrow|leftarrow|text|mathrm|mathbf|mathbb|left|right|begin|end)\b/.test(t);
       const looksFormula=/=/.test(t)||/^[A-Za-z]\s*[=<>]/.test(t)||/^\\(?:frac|dfrac|tfrac|sqrt|sum|prod|lim)\b/.test(t);
-      if(hasLatex&&looksFormula){
+      const proseWords=(t.match(/[A-Za-zÀ-ỹ]+/gu)||[]).length;
+      const looksLikeProse=proseWords>=6&&/[À-ỹ]/u.test(t);
+      if(hasLatex&&looksFormula&&!looksLikeProse){
         const pad=(line.match(/^\s*/)||[""])[0];
         return pad+"$$"+t+"$$";
       }
@@ -50,13 +67,13 @@ function renderAnswer(text){
   try{
     if(window.marked&&window.DOMPurify){
       marked.setOptions({gfm:true,breaks:true});
-      let cleaned=normalizeBareLatex(normalizeTutorMarkdown(text));
+      let cleaned=normalizeBareLatex(repairMalformedMath(normalizeTutorMarkdown(text)));
       answer.innerHTML=DOMPurify.sanitize(marked.parse(cleaned),{USE_PROFILES:{html:true}});
       const visible=[...answer.children].filter(el=>el.tagName!=="BR");
       if(visible.length===1&&visible[0].tagName==="PRE"){
         const raw=visible[0].textContent||"";
         if(/(^|\n)\s*(?:#{1,6}\s|\*{1,2}\s|[-+]\s|\$\$|```)/m.test(raw)){
-          cleaned=normalizeBareLatex(normalizeTutorMarkdown(raw));
+          cleaned=normalizeBareLatex(repairMalformedMath(normalizeTutorMarkdown(raw)));
           answer.innerHTML=DOMPurify.sanitize(marked.parse(cleaned),{USE_PROFILES:{html:true}});
         }
       }
@@ -85,7 +102,7 @@ document.addEventListener("paste",e=>{const f=[...e.clipboardData.files].find(x=
 document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{prompt.value=(prompt.value?prompt.value+"\n\n":"")+b.dataset.q;prompt.focus()});
 $("clear").onclick=()=>{prompt.value="";image.value="";imageData=null;preview.style.display="none";answer.innerHTML='<span class="empty">Hãy gửi đề bài hoặc code để bắt đầu.</span>';history=[];status.textContent=""};
 async function ask(extra=""){const text=[prompt.value.trim(),extra.trim()].filter(Boolean).join("\n\n");if(!text&&!imageData){status.textContent="Hãy nhập đề bài, code hoặc chọn ảnh.";return}
-const formatRule="\n\nQUY TẮC: Đây là chatbot GỢI Ý. Không đưa lời giải/code/pseudocode hoàn chỉnh dù em yêu cầu. Mỗi lượt chỉ mở thêm một bước rồi dừng bằng câu hỏi hoặc việc em cần tự làm tiếp. Trả lời Markdown sạch; công thức dùng $...$ hoặc $...$; không thụt 4 dấu cách đầu dòng; không dùng code fence.";
+const formatRule="\n\nQUY TẮC: Đây là chatbot GỢI Ý. Không đưa lời giải/code/pseudocode hoàn chỉnh dù em yêu cầu. Mỗi lượt chỉ mở thêm một bước rồi dừng bằng câu hỏi hoặc việc em cần tự làm tiếp. Trả lời Markdown sạch; công thức trong dòng phải dùng \\( ... \\), công thức đứng riêng phải dùng \\[ ... \\]. Không lồng các delimiter toán vào nhau. Không thụt 4 dấu cách đầu dòng; không dùng code fence.";
 const payload={message:text+formatRule,language:$("language").value,level:$("level").value,image:imageData,history:history.slice(-8)};
 $("send").disabled=true;status.textContent="AI đang phân tích…";answer.textContent="Đang suy nghĩ…";
 try{const res=await fetchWithRetry("https://thayminhchuyentin.vanminhk-27.workers.dev/api/ai-tutor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||"API chưa được cấu hình trên máy chủ.");const out=data.answer||data.text||"AI không trả về nội dung.";renderAnswer(out);history.push({role:"user",text},{role:"model",text:out});status.textContent="Đã phân tích xong."}catch(e){
