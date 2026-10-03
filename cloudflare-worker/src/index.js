@@ -123,8 +123,12 @@ export default {
       contents:toGeminiContents(body.history,message,image),
       generationConfig:{temperature:0.2,maxOutputTokens:level==="hint"?900:1400}
     };
-    const primary=selectModel(env.GEMINI_MODEL);
-    const models=[primary,...["gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-3.5-flash"].filter(m=>m!==primary)];
+    const configured=selectModel(env.GEMINI_MODEL);
+    const primary=image?configured:"gemini-3.5-flash-lite";
+    const fallbackOrder=image
+      ? ["gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-3.5-flash"]
+      : ["gemini-3.1-flash-lite",configured,"gemini-3.5-flash"];
+    const models=[...new Set([primary,...fallbackOrder])];
     let lastStatus=502,lastDetail="Không kết nối được Gemini. Vui lòng thử lại.";
     for(const model of models){
       for(let attempt=0;attempt<2;attempt++){
