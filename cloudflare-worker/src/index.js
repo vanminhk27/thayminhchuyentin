@@ -158,96 +158,181 @@ function selectModel(value){
   const allowed=new Set(["gemini-3.8-flash","gemini-3.7-flash","gemini-3.6-flash","gemini-3.5-flash","gemini-3.5-flash-lite","gemini-3.1-flash-lite"]);
   return allowed.has(value)?value:"gemini-3.8-flash";
 }
+function nowWindow(map,key,limit,now=Date.now()){
+  const cutoff=now-60_000;
+  const arr=(map.get(key)||[]).filter(t=>t>cutoff);
+  if(arr.length>=limit){map.set(key,arr);return false}
+  arr.push(now); map.set(key,arr);
+  if(map.size>2000){
+    for(const [k,v] of map){if(!v.some(t=>t>cutoff))map.delete(k)}
+  }
+  return true;
+}
+function bestEffortRateLimit(sessionId){
+  if(!nowWindow(sessionWindows,"__global__",LIMITS.globalPerMinute))return {ok:false,scope:"global"};
+  if(sessionId&&!nowWindow(sessionWindows,"s:"+sessionId,LIMITS.sessionPerMinute))return {ok:false,scope:"session"};
+  return {ok:true};
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+function retryDelay(upstream,attempt){
+  const raw=Number(upstream&&upstream.headers&&upstream.headers.get("retry-after"));
+  const base=Number.isFinite(raw)&&raw>0?Math.min(raw*1000,2500):(350*Math.pow(2,attempt));
+  return Math.min(2800,base+Math.floor(Math.random()*180));
+}
+function dailyQuotaError(status,detail){
+  return status===429&&/(per day|requests per day|\brpd\b|daily quota|quota.*day|resource exhausted.*day)/i.test(String(detail||""));
+}
+async function geminiFetch(model,payload,key,timeoutMs=12000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    return await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+      method:"POST",
+      headers:{"content-type":"application/json","x-goog-api-key":key},
+      body:JSON.stringify(payload),
+      signal:controller.signal
+    });
+  }finally{clearTimeout(timer)}
+}
+function staticFallback(level){
+  return normalizeStructured({
+    observation:"Dịch vụ AI đang tạm bận, nhưng em vẫn có thể tiếp tục kiểm tra bài theo một bước cơ bản.",
+    hint:level==="hint"?"Hãy xác định rõ Input, Output và ràng buộc lớn nhất trước.":"Hãy ghi lại Input, Output, ràng buộc n/miền giá trị rồi ước lượng độ phức tạp tối đa có thể chấp nhận.",
+    next_question:"Trong đề của em, ràng buộc nào quyết định cách chọn thuật toán?"
+  });
+}
+function languageClarification(conflict){
+  const selected=conflict.selected==="python"?"Python":"C++";
+  const detected=conflict.detected==="python"?"Python":"C++";
+  return normalizeStructured({
+    observation:"Giao diện đang chọn "+selected+" nhưng đoạn code có dấu hiệu là "+detected+".",
+    needs_clarification:true,
+    clarification_question:"Em muốn mình phân tích đoạn này theo "+detected+" đúng không?"
+  });
+}
+function telemetry(info){
+  console.log(JSON.stringify({event:"ai_tutor",promptVersion:PROMPT_VERSION,...info}));
+}
 
-export {parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,violatesTutorPolicy};
+export {
+  parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,
+  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,parseTutorResponse,
+  structuredText,bestEffortRateLimit,dailyQuotaError,staticFallback
+};
 
 export default {
   async fetch(request,env){
+    const started=Date.now();
     const url=new URL(request.url);
     const origin=request.headers.get("Origin")||"";
     const allowed=env.ALLOWED_ORIGIN||"https://thayminhchuyentin.io.vn";
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors(origin,allowed)});
-    if(request.method==="GET" && (url.pathname==="/"||url.pathname==="/health")){
-      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL),geminiConfigured:Boolean(env.GEMINI_API_KEY)},200,origin,allowed);
+    if(request.method==="GET"&&(url.pathname==="/"||url.pathname==="/health")){
+      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL),promptVersion:PROMPT_VERSION,geminiConfigured:Boolean(env.GEMINI_API_KEY)},200,origin,allowed);
     }
-    if(request.method!=="POST" || !["/","/api/ai-tutor"].includes(url.pathname)){
-      return json({error:"Not found"},404,origin,allowed);
-    }
-    if(origin && !isAllowedOrigin(origin,allowed)){
-      return json({error:"Origin không được phép."},403,origin,allowed);
-    }
-    if(!env.GEMINI_API_KEY)return json({error:"Máy chủ chưa cấu hình GEMINI_API_KEY."},500,origin,allowed);
+    if(request.method!=="POST"||!["/","/api/ai-tutor"].includes(url.pathname))return json({error:"Not found"},404,origin,allowed);
+    if(origin&&!isAllowedOrigin(origin,allowed))return json({error:"Origin không được phép.",code:"ORIGIN_DENIED"},403,origin,allowed);
+    if(!env.GEMINI_API_KEY)return json({error:"Máy chủ chưa cấu hình Gemini.",code:"GEMINI_NOT_CONFIGURED"},500,origin,allowed);
     const len=Number(request.headers.get("content-length")||0);
-    if(len>8_000_000)return json({error:"Yêu cầu quá lớn."},413,origin,allowed);
+    if(len>8_000_000)return json({error:"Yêu cầu quá lớn.",code:"REQUEST_TOO_LARGE"},413,origin,allowed);
+
     let body;
-    try{body=await request.json()}catch{return json({error:"JSON không hợp lệ."},400,origin,allowed)}
-    const message=String(body.message||"").trim().slice(0,30000);
-    let image;
-    try{image=parseImage(body.image||null)}catch(e){return json({error:e.message},400,origin,allowed)}
-    if(!message&&!image)return json({error:"Hãy nhập đề bài, code hoặc gửi ảnh."},400,origin,allowed);
+    try{body=await request.json()}catch{return json({error:"Dữ liệu gửi lên không hợp lệ.",code:"INVALID_JSON"},400,origin,allowed)}
+    const requestId=sanitizeId(body.requestId)||crypto.randomUUID();
+    const sessionId=sanitizeId(body.sessionId);
+    const message=String(body.message||"").trim().slice(0,LIMITS.message);
     const level=normalizeLevel(body.level);
-    const payload={
-      system_instruction:{parts:[{text:systemPrompt(body.language,level)}]},
-      contents:toGeminiContents(body.history,message,image),
-      generationConfig:{temperature:0.2,maxOutputTokens:level==="hint"?900:1400}
-    };
-    const configured=selectModel(env.GEMINI_MODEL);
-    const primary=image?configured:"gemini-3.5-flash-lite";
-    const fallbackOrder=image
-      ? ["gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-3.5-flash"]
-      : ["gemini-3.1-flash-lite",configured,"gemini-3.5-flash"];
-    const models=[...new Set([primary,...fallbackOrder])];
-    let lastStatus=502,lastDetail="Không kết nối được Gemini. Vui lòng thử lại.";
-    for(const model of models){
-      for(let attempt=0;attempt<2;attempt++){
-        let upstream;
-        try{
-          upstream=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
-            method:"POST",headers:{"content-type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(payload)
-          });
-        }catch{
-          if(attempt===0){await new Promise(r=>setTimeout(r,300));continue}
-          break;
-        }
-        const data=await upstream.json().catch(()=>({}));
-        if(upstream.ok){
-          let answer=extractAnswer(data);
-          if(answer){
-            let rewritten=false;
-            if(violatesTutorPolicy(answer)){
-              const repairPayload={
-                system_instruction:{parts:[{text:"Bạn là bộ lọc sư phạm. Viết lại nội dung thành GỢI Ý cho học sinh: không code fence, không code/pseudocode hoàn chỉnh, không đáp án cuối; chỉ giữ 1 bước gợi mở, 1-2 câu hỏi và việc học sinh cần tự làm tiếp. Trả lời tiếng Việt, Markdown sạch."}]},
-                contents:[{role:"user",parts:[{text:"Câu hỏi của học sinh:\n"+message+"\n\nNội dung cần viết lại:\n"+answer}]}],
-                generationConfig:{temperature:0.1,maxOutputTokens:900}
-              };
-              try{
-                const repair=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
-                  method:"POST",headers:{"content-type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(repairPayload)
-                });
-                const repairData=await repair.json().catch(()=>({}));
-                if(repair.ok){
-                  const fixed=extractAnswer(repairData);
-                  if(fixed&&!violatesTutorPolicy(fixed)){answer=fixed;rewritten=true}
-                }
-              }catch{}
-            }
-            if(violatesTutorPolicy(answer)){
-              answer="Mình sẽ không đưa lời giải hoàn chỉnh. Em hãy bắt đầu bằng cách xác định constraints và tự hỏi: với giới hạn đó, độ phức tạp nào là chấp nhận được? Từ đó em thử nghĩ một cách đơn giản nhất trước, rồi gửi lại ý tưởng của em để mình gợi ý bước tiếp theo.";
-              rewritten=true;
-            }
-            return json({answer,model,fallback:model!==primary,rewritten,level},200,origin,allowed);
-          }
-          lastStatus=502;lastDetail="Gemini không trả về nội dung.";
-          break;
-        }
-        lastStatus=upstream.status>=400&&upstream.status<600?upstream.status:502;
-        lastDetail=data?.error?.message||"Gemini API trả về lỗi.";
-        if(![429,500,502,503,504].includes(upstream.status)){
-          return json({error:lastDetail},lastStatus,origin,allowed);
-        }
-        if(attempt===0)await new Promise(r=>setTimeout(r,350));
+    let image;
+    try{image=parseImage(body.image||null)}catch(e){return json({error:e.message,code:"INVALID_IMAGE",requestId},400,origin,allowed)}
+    if(!message&&!image)return json({error:"Hãy nhập đề bài, code hoặc gửi ảnh.",code:"EMPTY_INPUT",requestId},400,origin,allowed);
+
+    const rate=bestEffortRateLimit(sessionId);
+    if(!rate.ok)return json({
+      error:rate.scope==="session"?"Em gửi hơi nhanh. Hãy chờ một chút rồi thử lại.":"Hệ thống đang có nhiều yêu cầu cùng lúc. Hãy thử lại sau ít giây.",
+      code:"RATE_LIMITED",requestId,retryAfterSeconds:10
+    },429,origin,allowed,{"retry-after":"10"});
+    if(sessionId&&inFlightSessions.has(sessionId))return json({error:"Phiên này đang có một yêu cầu được xử lý.",code:"REQUEST_IN_PROGRESS",requestId},409,origin,allowed);
+    if(sessionId)inFlightSessions.add(sessionId);
+
+    try{
+      const conflict=languageConflict(body.language,message);
+      if(conflict){
+        const response=languageClarification(conflict);
+        telemetry({requestId,model:"none",status:200,latencyMs:Date.now()-started,languageConflict:true});
+        return json({requestId,sessionId,response,answer:structuredText(response),level,model:"none",promptVersion:PROMPT_VERSION},200,origin,allowed);
       }
+
+      const state=body.state&&typeof body.state==="object"?body.state:{};
+      const wantTest=wantsSmallTestResult(message);
+      const prompt=systemPrompt(body.language,level,state)+(wantTest?"\nHọc sinh đang yêu cầu kết quả của một test nhỏ: nếu test đủ dữ kiện, hãy cho đúng kết quả trong check_test; vẫn không đưa lời giải đầy đủ.":"");
+      const payload={
+        system_instruction:{parts:[{text:prompt}]},
+        contents:toGeminiContents(body.history,message,image),
+        generationConfig:{temperature:0.15,maxOutputTokens:level==="hint"?700:1000,responseMimeType:"application/json"}
+      };
+
+      const configured=selectModel(env.GEMINI_MODEL);
+      const primary=image?configured:"gemini-3.5-flash-lite";
+      const fallbackOrder=image?["gemini-3.5-flash-lite","gemini-3.1-flash-lite"]:["gemini-3.1-flash-lite",configured];
+      const models=[...new Set([primary,...fallbackOrder])];
+      let lastStatus=502,lastDetail="Không kết nối được Gemini.",timedOut=false;
+
+      for(const model of models){
+        for(let attempt=0;attempt<2;attempt++){
+          let upstream;
+          try{upstream=await geminiFetch(model,payload,env.GEMINI_API_KEY,12000)}
+          catch(e){
+            timedOut=true;
+            if(attempt===0){await sleep(350+Math.floor(Math.random()*150));continue}
+            break;
+          }
+          const data=await upstream.json().catch(()=>({}));
+          if(upstream.ok){
+            let response=parseTutorResponse(extractAnswer(data));
+            let combined=structuredText(response);
+            const leaked=violatesTutorPolicy(combined);
+            if(leaked){
+              response=normalizeStructured({
+                observation:"Mình sẽ giữ đúng vai trò trợ giảng và không đưa lời giải hoàn chỉnh.",
+                hint:"Hãy xác định điều kiện hoặc lỗi quan trọng nhất của bài trước.",
+                next_question:"Theo em, ràng buộc nào đang quyết định hướng giải ở đây?"
+              });
+              combined=structuredText(response);
+            }
+            telemetry({requestId,model,status:200,latencyMs:Date.now()-started,fallback:model!==primary,rewritten:leaked});
+            return json({
+              requestId,sessionId,response,answer:combined,level,model,fallback:model!==primary,
+              promptVersion:PROMPT_VERSION,usage:data&&data.usageMetadata?data.usageMetadata:null
+            },200,origin,allowed);
+          }
+
+          lastStatus=upstream.status;
+          lastDetail=data&&data.error&&data.error.message?data.error.message:"Gemini API trả về lỗi.";
+          if(dailyQuotaError(upstream.status,lastDetail)){
+            const fallback=staticFallback(level);
+            telemetry({requestId,model,status:429,latencyMs:Date.now()-started,errorCode:"DAILY_QUOTA_EXHAUSTED"});
+            return json({
+              error:"Hạn mức Gemini trong ngày đã hết. Bài của em vẫn được giữ nguyên.",
+              code:"DAILY_QUOTA_EXHAUSTED",requestId,fallback,promptVersion:PROMPT_VERSION
+            },429,origin,allowed);
+          }
+          if(![429,500,502,503,504].includes(upstream.status)){
+            telemetry({requestId,model,status:upstream.status,latencyMs:Date.now()-started,errorCode:"UPSTREAM_ERROR"});
+            return json({error:"Gemini từ chối yêu cầu này.",code:"UPSTREAM_ERROR",requestId},upstream.status,origin,allowed);
+          }
+          if(attempt===0)await sleep(retryDelay(upstream,attempt));
+        }
+      }
+
+      const fallback=staticFallback(level);
+      const code=timedOut?"AI_TIMEOUT":lastStatus===429?"AI_BUSY":"AI_UNAVAILABLE";
+      telemetry({requestId,model:"none",status:lastStatus||503,latencyMs:Date.now()-started,errorCode:code});
+      return json({
+        error:timedOut?"AI phản hồi quá chậm. Em có thể thử lại sau ít giây.":"Các model Gemini đang bận. Em có thể thử lại sau ít giây.",
+        code,requestId,fallback,promptVersion:PROMPT_VERSION
+      },timedOut?504:503,origin,allowed);
+    }finally{
+      if(sessionId)inFlightSessions.delete(sessionId);
     }
-    return json({error:"Các model Gemini đang bận. Vui lòng thử lại sau ít giây.",detail:lastDetail},503,origin,allowed);
   }
 };
