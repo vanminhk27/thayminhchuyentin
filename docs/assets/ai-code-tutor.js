@@ -203,6 +203,12 @@ function repairMalformedMath(text){
     return singleDollarCount>=2||prose?m[1]+inner+m[3]:line;
   }).join("\n");
 }
+function normalizeProgrammingMath(text){
+  return String(text==null?"":text)
+    .replace(/\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\\(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\s*\)/g,"`$1 % $2`")
+    .replace(/\b([A-Za-z][A-Za-z0-9_]*)\s*\\(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\b/g,"`$1 % $2`")
+    .replace(/\(\s*([A-Za-z])\s*\)/g,"\\($1\\)");
+}
 function normalizeBareLatex(text){
   return String(text==null?"":text).split("\n").map(line=>{
     const t=line.trim();
@@ -225,7 +231,7 @@ function renderRich(target,text){
   try{
     if(window.marked&&window.DOMPurify){
       marked.setOptions({gfm:true,breaks:true});
-      const cleaned=normalizeBareLatex(repairMalformedMath(normalizeTutorMarkdown(raw)));
+      const cleaned=normalizeBareLatex(normalizeProgrammingMath(repairMalformedMath(normalizeTutorMarkdown(raw))));
       target.innerHTML=DOMPurify.sanitize(marked.parse(cleaned),{USE_PROFILES:{html:true}});renderMath(target);return;
     }
   }catch(e){console.warn("Render fallback",e)}
