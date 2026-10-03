@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker,{
   parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,
-  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,repairJsonBackslashes,parseTutorResponse,
+  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,normalizeTutorText,repairJsonBackslashes,parseTutorResponse,
   structuredText,bestEffortRateLimit,dailyQuotaError,staticFallback
 } from "../src/index.js";
 
@@ -91,7 +91,7 @@ test("health does not expose secret and includes prompt version",async()=>{
   const data=await r.json();
   assert.equal(r.status,200);
   assert.equal(data.geminiConfigured,true);
-  assert.match(data.promptVersion,/2026-10-03-r2/);
+  assert.match(data.promptVersion,/2026-10-03-r3/);
   assert.doesNotMatch(JSON.stringify(data),/secret/);
 });
 
@@ -241,7 +241,8 @@ test("malformed Gemini JSON with LaTeX is repaired instead of leaking internal k
   assert.match(repaired,/\\\\pmod/);
   const parsed=parseTutorResponse(raw);
   assert.equal(parsed.observation,"Em chưa nắm rõ cách dùng phép chia lấy dư để tìm UCLN.");
-  assert.match(parsed.hint,/\\pmod/);
+  assert.match(parsed.hint,/`a % b`/);
+  assert.doesNotMatch(parsed.hint,/\\pmod/);
   assert.doesNotMatch(parsed.hint,/"observation"/);
   assert.equal(parsed.next_question,"Khi số dư bằng 0 thì số nào là UCLN?");
 });
@@ -249,5 +250,11 @@ test("malformed Gemini JSON with LaTeX is repaired instead of leaking internal k
 test("prompt tells Gemini to avoid pmod for programming remainder",()=>{
   const p=systemPrompt("python","hint");
   assert.match(p,/a % b/);
-  assert.match(p,/KHÔNG dùng \\\\pmod/);
+  assert.equal(p.includes("KHÔNG dùng \\pmod"),true);
+});
+
+
+test("normalizeTutorText converts pmod to programming remainder notation",()=>{
+  assert.equal(normalizeTutorText("UCLN của ( a \\pmod b )"),"UCLN của `a % b`");
+  assert.equal(normalizeTutorText("x \\\\pmod y"),"`x % y`");
 });
