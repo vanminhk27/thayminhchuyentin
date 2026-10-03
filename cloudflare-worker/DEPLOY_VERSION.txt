@@ -1,0 +1,3 @@
+AI Tutor production deploy
+version=2026-10-03-r2
+source_commit=3edebd7d30c9af4f0dae0224bf6829786e8c1715
