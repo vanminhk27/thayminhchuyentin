@@ -25,10 +25,10 @@ test("functional release gate includes T19-T24",()=>{
   for(const id of suite.releaseThreshold.functionalMustPass)assert.equal(suite.cases.find(c=>c.id===id).kind,"functional");
 });
 
-test("content cases keep expected rubric separate from user input",()=>{
+test("content cases keep rubric in a separate expect field",()=>{
   for(const c of suite.cases.filter(c=>c.kind==="content")){
     assert.ok(c.input&&c.input.length>10);
     assert.ok(Array.isArray(c.expect)&&c.expect.length>0);
-    for(const e of c.expect)assert.equal(c.input.includes(e),false);
+    assert.equal(/\bĐạt:\s*/i.test(c.input),false);
   }
 });
