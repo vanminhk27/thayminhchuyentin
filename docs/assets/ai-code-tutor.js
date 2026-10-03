@@ -96,7 +96,53 @@ async function fetchWithRetry(url,options){
   }
   throw lastError;
 }
+function insertFormulaIntoPrompt(latex){
+  const value=String(latex||"").trim();
+  if(!value)return false;
+  const wrapped="\\("+value+"\\)";
+  const start=prompt.selectionStart??prompt.value.length;
+  const end=prompt.selectionEnd??start;
+  const before=prompt.value.slice(0,start);
+  const after=prompt.value.slice(end);
+  const leftSpace=before&&!/\\s$/.test(before)?" ":"";
+  const rightSpace=after&&!/^\\s/.test(after)?" ":"";
+  prompt.value=before+leftSpace+wrapped+rightSpace+after;
+  const caret=(before+leftSpace+wrapped+rightSpace).length;
+  prompt.focus();
+  prompt.setSelectionRange(caret,caret);
+  return true;
+}
+function setupMathEditor(){
+  const dialog=$("mathDialog"),field=$("mathField"),open=$("openMath"),close=$("closeMath"),insert=$("insertMath"),clear=$("clearMath"),previewLatex=$("mathLatexPreview");
+  if(!dialog||!field||!open)return;
+  const sync=()=>{if(previewLatex)previewLatex.textContent=field.value||""};
+  open.addEventListener("click",()=>{
+    if(typeof dialog.showModal==="function")dialog.showModal();else dialog.setAttribute("open","");
+    setTimeout(()=>field.focus(),30);
+    sync();
+  });
+  close?.addEventListener("click",()=>dialog.close());
+  dialog.addEventListener("click",e=>{if(e.target===dialog)dialog.close()});
+  clear?.addEventListener("click",()=>{field.value="";field.focus();sync()});
+  field.addEventListener("input",sync);
+  document.querySelectorAll(".mathQuick [data-latex]").forEach(btn=>btn.addEventListener("click",()=>{
+    const latex=btn.dataset.latex||"";
+    if(typeof field.insert==="function")field.insert(latex,{selectionMode:"placeholder",focus:true});
+    else field.value=(field.value||"")+latex;
+    sync();
+  }));
+  insert?.addEventListener("click",()=>{
+    if(insertFormulaIntoPrompt(field.value)){
+      dialog.close();
+      status.textContent="Đã chèn công thức vào đề bài.";
+    }else{
+      status.textContent="Hãy nhập công thức trước.";
+      field.focus();
+    }
+  });
+}
 function setImage(file){if(!file||!file.type.startsWith("image/"))return;if(file.size>5*1024*1024){status.textContent="Ảnh tối đa 5 MB.";return}const r=new FileReader();r.onload=()=>{imageData=r.result;preview.src=imageData;preview.style.display="block";status.textContent="Đã nhận ảnh."};r.readAsDataURL(file)}
+setupMathEditor();
 image.addEventListener("change",e=>setImage(e.target.files[0]));
 document.addEventListener("paste",e=>{const f=[...e.clipboardData.files].find(x=>x.type.startsWith("image/"));if(f)setImage(f)});
 document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{prompt.value=(prompt.value?prompt.value+"\n\n":"")+b.dataset.q;prompt.focus()});
