@@ -241,6 +241,12 @@ function structuredMarkdown(response,fallbackText){
   if(!response||typeof response!=="object")return String(fallbackText||"");
   const parts=[];
   if(response.observation)parts.push(String(response.observation));
+  if(response.stage==="final"){
+    if(response.final_solution)parts.push("### ✅ Lời giải cuối\n"+response.final_solution);
+    if(response.complexity)parts.push("**Độ phức tạp:** "+response.complexity);
+    if(response.final_code)parts.push("**Code hoàn chỉnh:**\n\n\`\`\`\n"+response.final_code+"\n\`\`\`");
+    return parts.join("\n\n")||String(fallbackText||"");
+  }
   if(response.hint)parts.push("**Gợi ý:** "+response.hint);
   if(response.check_test)parts.push("**Test nhỏ:** "+response.check_test);
   if(response.needs_clarification&&response.clarification_question)parts.push("**Cần làm rõ:** "+response.clarification_question);
@@ -282,7 +288,7 @@ async function requestTutor(payload,controller){
 function updateTutorState(response){
   if(!response||typeof response!=="object")return;
   tutorState.hintStep+=1;
-  tutorState.pendingQuestion=response.needs_clarification?String(response.clarification_question||""):String(response.next_question||"");
+  tutorState.pendingQuestion=response.stage==="final"?"":(response.needs_clarification?String(response.clarification_question||""):String(response.next_question||""));
 }
 async function ask(message,kind){
   const text=String(message||"").trim();
@@ -315,7 +321,7 @@ async function ask(message,kind){
     }
     const out=structuredMarkdown(data.response,data.answer||data.text||"");
     const turn={role:"assistant",text:out,model:data.model||"",note:data.fallback?"Đã chuyển model dự phòng":"",degraded:false};
-    appendTurn("assistant",out,turn);turns.push(turn);updateTutorState(data.response);saveCurrentConversation(true);status.textContent="Đã nhận gợi ý.";
+    appendTurn("assistant",out,turn);turns.push(turn);updateTutorState(data.response);saveCurrentConversation(true);status.textContent=data.response&&data.response.stage==="final"?"Đã chốt lời giải.":"Đã nhận gợi ý.";
   }catch(e){
     if(e&&e.name==="AbortError"){if(version===sessionVersion)status.textContent="Yêu cầu đã được hủy hoặc quá thời gian chờ."}
     else if(version===sessionVersion)status.textContent="Không kết nối được máy chủ AI. Hãy kiểm tra mạng và thử lại.";
