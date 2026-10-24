@@ -353,7 +353,16 @@ async function geminiFetch(model,payload,key,timeoutMs=12000){
     });
   }finally{clearTimeout(timer)}
 }
-function staticFallback(level){
+function staticFallback(level,subject="code"){
+  if(subject==="math"){
+    return normalizeStructured({
+      observation:"Dịch vụ AI đang tạm bận, nhưng em vẫn có thể tiếp tục bài Toán theo một bước cơ bản.",
+      hint:level==="hint"
+        ?"Hãy tách rõ giả thiết, yêu cầu và điều kiện xác định của bài trước."
+        :"Hãy viết lại giả thiết, điều cần tìm/chứng minh và phép biến đổi hoặc định lý em đang nghĩ tới.",
+      next_question:"Theo em, bước toán học đầu tiên chắc chắn đúng từ giả thiết là gì?"
+    });
+  }
   return normalizeStructured({
     observation:"Dịch vụ AI đang tạm bận, nhưng em vẫn có thể tiếp tục kiểm tra bài theo một bước cơ bản.",
     hint:level==="hint"?"Hãy xác định rõ Input, Output và ràng buộc lớn nhất trước.":"Hãy ghi lại Input, Output, ràng buộc n/miền giá trị rồi ước lượng độ phức tạp tối đa có thể chấp nhận.",
@@ -491,7 +500,7 @@ export default {
           lastStatus=upstream.status;
           lastDetail=data&&data.error&&data.error.message?data.error.message:"Gemini API trả về lỗi.";
           if(dailyQuotaError(upstream.status,lastDetail)){
-            const fallback=staticFallback(level);
+            const fallback=staticFallback(level,subject);
             telemetry({requestId,model,status:429,latencyMs:Date.now()-started,errorCode:"DAILY_QUOTA_EXHAUSTED"});
             return json({
               error:"Hạn mức Gemini trong ngày đã hết. Bài của em vẫn được giữ nguyên.",
@@ -506,13 +515,15 @@ export default {
         }
       }
 
-      const fallback=staticFallback(level);
+      const fallback=staticFallback(level,subject);
       const code=timedOut?"AI_TIMEOUT":lastStatus===429?"AI_BUSY":"AI_UNAVAILABLE";
-      telemetry({requestId,model:"none",status:lastStatus||503,latencyMs:Date.now()-started,errorCode:code});
+      const notice=timedOut?"AI đang phản hồi chậm; hệ thống đã chuyển sang gợi ý dự phòng.":"Gemini đang bận; hệ thống đã chuyển sang gợi ý dự phòng.";
+      telemetry({requestId,subject,model:"fallback",status:200,latencyMs:Date.now()-started,errorCode:code,degraded:true});
       return json({
-        error:timedOut?"AI phản hồi quá chậm. Em có thể thử lại sau ít giây.":"Các model Gemini đang bận. Em có thể thử lại sau ít giây.",
-        code,requestId,fallback,promptVersion:PROMPT_VERSION
-      },timedOut?504:503,origin,allowed);
+        requestId,sessionId,subject,response:fallback,answer:structuredText(fallback),level,
+        model:"fallback",fallback:true,degraded:true,notice,code,allowFinal:false,masteryPercent:0,
+        promptVersion:PROMPT_VERSION
+      },200,origin,allowed);
     }finally{
       if(sessionId)inFlightSessions.delete(sessionId);
     }
