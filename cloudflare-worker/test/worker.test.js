@@ -442,3 +442,29 @@ test("mastery evaluator falls back when primary model is busy",async()=>{
     assert.ok(seen.some(x=>x.includes("gemini-3.1-flash-lite")));
   }finally{globalThis.fetch=old}
 });
+
+
+test("transient overload returns HTTP 200 graceful fallback",async()=>{
+  const old=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
+  try{
+    const r=await worker.fetch(makeRequest({
+      requestId:"r-overload",sessionId:"s-overload",
+      message:"gợi ý",language:"python",level:"hint",history:[]
+    }),env);
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.degraded,true);
+    assert.equal(data.model,"fallback");
+    assert.equal(data.response.stage,"hint");
+    assert.ok(data.response.hint);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("math graceful fallback uses math wording",()=>{
+  const f=staticFallback("hint","math");
+  assert.match(f.observation,/bài Toán/);
+  assert.match(f.hint,/giả thiết/);
+  assert.match(f.next_question,/bước toán học/);
+  assert.doesNotMatch(f.hint,/Input|Output/);
+});
