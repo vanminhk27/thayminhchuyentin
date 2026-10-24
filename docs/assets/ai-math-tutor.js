@@ -224,7 +224,7 @@ function repairLegacyLatex(text){
     .replace(/\n(?=abla)/g,"\\n")
     .replace(/\r(?=ight)/g,"\\r")
     .replace(/\r(?=ho)/g,"\\r")
-    .replace(/\\{2,}(?=(?:frac|dfrac|tfrac|times|theta|text|neq|nabla|nu|right|rho|beta|bmod|begin|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|approx|infty|alpha|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|mathrm|mathbf|mathbb)\b)/g,"\\");
+    .replace(/\\{2,}(?=(?:frac|dfrac|tfrac|times|theta|text|neq|nabla|nu|right|rho|beta|bmod|begin|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|approx|infty|alpha|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|mathrm|mathbf|mathbb))/g,"\\");
   const mathCommand=/^\s*\\(?:frac|dfrac|tfrac|sqrt|sum|prod|lim|log|ln|sin|cos|tan|theta|alpha|beta|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|right)\b/;
   let out="",i=0;
   while(i<raw.length){
