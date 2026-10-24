@@ -154,7 +154,7 @@ function restoreConversation(id){
   level.value=c.level||"hint";
   turns=cloneTurns(c.turns);
   tutorState={hintStep:c.tutorState&&c.tutorState.hintStep||0,pendingQuestion:c.tutorState&&c.tutorState.pendingQuestion||""};
-  followText.value="";
+  followText.value="";resizeFollowInput();
   renderConversationTurns();renderConversationList();writeStoredConversations();setBusy(false);
   status.textContent="Đã mở lại cuộc trò chuyện.";
 }
@@ -167,7 +167,7 @@ function createNewConversation(){
   if(active&&active.controller)active.controller.abort();
   active=null;sessionVersion+=1;removeBlankCurrent();clearTransientMedia();
   const c=makeConversation();conversations.unshift(c);sessionId=c.id;requestSeq=0;turns=[];tutorState={hintStep:0,pendingQuestion:""};
-  prompt.value="";language.value="python";level.value="hint";followText.value="";
+  prompt.value="";language.value="python";level.value="hint";followText.value="";resizeFollowInput();
   chat.innerHTML='<span class="empty">Cuộc trò chuyện mới. Hãy dán đề bài/code hoặc đặt câu hỏi để bắt đầu.</span>';
   status.textContent="Đã tạo cuộc trò chuyện mới.";setBusy(false);writeStoredConversations();renderConversationList();prompt.focus();
 }
@@ -275,6 +275,18 @@ function setBusy(flag){
   send.disabled=flag;followSend.disabled=flag;followText.disabled=flag;
   document.querySelectorAll(".chip").forEach(b=>b.disabled=flag);
 }
+function resizeFollowInput(){
+  if(!followText)return;
+  followText.style.height="auto";
+  followText.style.height=Math.min(followText.scrollHeight,180)+"px";
+}
+function submitFollowMessage(){
+  const q=followText.value.trim();
+  if(!q||active)return;
+  followText.value="";
+  resizeFollowInput();
+  ask(q,"follow");
+}
 function friendlyError(data,statusCode){
   const code=data&&data.code;
   if(code==="DAILY_QUOTA_EXHAUSTED")return "Hạn mức Gemini trong ngày đã hết. Bài của em vẫn được giữ nguyên.";
@@ -378,7 +390,15 @@ document.querySelectorAll(".chip").forEach(b=>b.addEventListener("click",()=>{pr
 clearBtn.addEventListener("click",createNewConversation);
 newChatBtn.addEventListener("click",createNewConversation);
 send.addEventListener("click",()=>ask(prompt.value.trim(),"main"));
-follow.addEventListener("submit",e=>{e.preventDefault();const q=followText.value.trim();if(!q)return;followText.value="";ask(q,"follow")});
+followText.addEventListener("input",resizeFollowInput);
+followText.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){
+    e.preventDefault();
+    submitFollowMessage();
+  }
+});
+follow.addEventListener("submit",e=>{e.preventDefault();submitFollowMessage()});
 window.addEventListener("beforeunload",()=>saveCurrentConversation(false));
 initConversations();
+resizeFollowInput();
 })();
