@@ -133,6 +133,35 @@ jobs:
           process.exit(1);
           NODE
 
+      - name: Production finalization test
+        run: |
+          node - <<'NODE'
+          const endpoint="https://thayminhchuyentin.vanminhk-27.workers.dev/api/ai-tutor";
+          const origin="https://thayminhchuyentin.io.vn";
+          const body={
+            requestId:"prod-final-"+Date.now(),
+            sessionId:"prod-final-"+Date.now(),
+            message:"Em đã làm gần xong: em hiểu thuật toán Euclid là lặp a,b=b,a%b cho tới khi b=0. Hãy kiểm tra và chốt lời giải cuối cho em.",
+            language:"python",
+            level:"guide",
+            history:[
+              {role:"user",text:"Em cần tìm UCLN."},
+              {role:"model",text:"Gợi ý: xét phép chia lấy dư."},
+              {role:"user",text:"Em hiểu là thay (a,b) bằng (b,a%b)."},
+              {role:"model",text:"Đúng hướng, em thử nghĩ điều kiện dừng."}
+            ],
+            state:{hintStep:3,pendingQuestion:"Điều kiện dừng là gì?"}
+          };
+          const r=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json","Origin":origin},body:JSON.stringify(body)});
+          const data=await r.json().catch(()=>({}));
+          console.log(JSON.stringify({status:r.status,allowFinal:data.allowFinal,stage:data.response?.stage,model:data.model},null,2));
+          if(!r.ok||data.allowFinal!==true||data.response?.stage!=="final"||!data.response?.final_solution){
+            console.error("Finalization production test failed:",JSON.stringify(data).slice(0,2000));
+            process.exit(1);
+          }
+          console.log("Production finalization OK");
+          NODE
+
       - name: Production concurrency test
         run: |
           node - <<'NODE'
