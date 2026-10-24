@@ -445,7 +445,7 @@ test("mastery evaluator falls back when primary model is busy",async()=>{
 
 
 test("transient overload returns HTTP 200 graceful fallback",async()=>{
-  const old=globalThis.fetch;
+  const oldFetch=globalThis.fetch;
   globalThis.fetch=async()=>new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
   try{
     const r=await worker.fetch(makeRequest({
