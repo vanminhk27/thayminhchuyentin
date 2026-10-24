@@ -91,7 +91,7 @@ test("health does not expose secret and includes prompt version",async()=>{
   const data=await r.json();
   assert.equal(r.status,200);
   assert.equal(data.geminiConfigured,true);
-  assert.match(data.promptVersion,/2026-10-24-r4/);
+  assert.match(data.promptVersion,/2026-10-24-r5/);
   assert.doesNotMatch(JSON.stringify(data),/secret/);
 });
 
