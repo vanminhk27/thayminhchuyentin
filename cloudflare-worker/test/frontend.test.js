@@ -226,3 +226,8 @@ test("student multiline messages preserve line breaks",()=>{
   assert.match(html,/\.turnUser \.turnBubble\{[^}]*white-space:pre-wrap/s);
   assert.match(html,/tab-size:4/);
 });
+
+
+test("original problem is sent for mastery evaluation",()=>{
+  assert.match(js,/problem:prompt\.value\.trim\(\)/);
+});
