@@ -1,5 +1,5 @@
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
-const PROMPT_VERSION="2026-10-24-r6";
+const PROMPT_VERSION="2026-10-24-r7";
 const LEVELS={
   hint:"Chỉ một gợi ý ngắn, có thể một phản ví dụ nhỏ, rồi kết thúc bằng đúng một câu hỏi cụ thể.",
   guide:"Chỉ trình bày bước hiện tại, không liệt kê trước các bước sau; dừng lại và chờ học sinh phản hồi."
@@ -69,18 +69,35 @@ async function evaluateMastery({problem,message,history,language,subject="code",
     isMath?"MÔN: Toán. PHẠM VI: "+String(track||"tự nhận diện"):"NGÔN NGỮ: "+String(language||""),
     "CÁC PHÁT BIỂU CỦA HỌC SINH:\n"+studentTurns.map((x,i)=>(i+1)+". "+x).join("\n")
   ].filter(Boolean).join("\n\n");
-  try{
-    const r=await geminiFetch(model,{
-      system_instruction:{parts:[{text:evaluatorPrompt}]},
-      contents:[{role:"user",parts:[{text:evidenceText}]}],
-      generationConfig:{temperature:0,maxOutputTokens:500,responseMimeType:"application/json"}
-    },key,9000);
-    if(!r.ok)return {mastery_percent:0,evidence:[],missing:["Chưa đánh giá được tiến độ."],reason:"Evaluator unavailable."};
-    const data=await r.json().catch(()=>({}));
-    return parseMasteryResponse(extractAnswer(data));
-  }catch{
-    return {mastery_percent:0,evidence:[],missing:["Chưa đánh giá được tiến độ."],reason:"Evaluator timeout."};
+  const payload={
+    system_instruction:{parts:[{text:evaluatorPrompt}]},
+    contents:[{role:"user",parts:[{text:evidenceText}]}],
+    generationConfig:{temperature:0,maxOutputTokens:500,responseMimeType:"application/json"}
+  };
+  const models=[...new Set([model,"gemini-3.1-flash-lite","gemini-3.8-flash"].filter(Boolean))];
+  let lastReason="Evaluator unavailable.";
+  for(const m of models){
+    for(let attempt=0;attempt<2;attempt++){
+      try{
+        const r=await geminiFetch(m,payload,key,9000);
+        if(!r.ok){
+          const err=await r.json().catch(()=>({}));
+          lastReason=err&&err.error&&err.error.message?String(err.error.message).slice(0,300):"Evaluator unavailable.";
+          if(![429,500,502,503,504].includes(r.status))break;
+          if(attempt===0)await sleep(250+Math.floor(Math.random()*120));
+          continue;
+        }
+        const data=await r.json().catch(()=>({}));
+        const raw=extractAnswer(data);
+        const parsed=parseMasteryResponse(raw);
+        if(parsed.reason!=="Evaluator trả về dữ liệu không hợp lệ.")return parsed;
+        lastReason=parsed.reason;
+      }catch{
+        lastReason="Evaluator timeout.";
+      }
+    }
   }
+  return {mastery_percent:0,evidence:[],missing:["Chưa đánh giá được tiến độ."],reason:lastReason};
 }
 function wantsSmallTestResult(text){
   return /\b(kết quả|đáp án)\b.{0,30}\b(test|ví dụ)|\b(test|ví dụ)\b.{0,30}\b(kết quả|ra bao nhiêu)|cho\s+(?:em\s+)?kết quả/i.test(String(text||""));
