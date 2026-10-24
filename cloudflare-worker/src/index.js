@@ -128,7 +128,8 @@ function systemPrompt(language,level,state={}){
     "Chế độ: "+LEVELS[mode],
     state.pendingQuestion?"Câu hỏi đang chờ học sinh trả lời: "+String(state.pendingQuestion).slice(0,500):"",
     Number.isFinite(Number(state.hintStep))?"Mức gợi ý hiện tại: "+Math.max(0,Number(state.hintStep))+".":"",
-    Number.isFinite(Number(state.masteryPercent))?"Mức hiểu được bộ chấm độc lập xác minh: "+clampMastery(state.masteryPercent)+"%.":"",\n    state.allowFinal?"ĐÃ ĐỦ NGƯỠNG 70% ĐỂ CHỐT LỜI GIẢI.":""
+    Number.isFinite(Number(state.masteryPercent))?"Mức hiểu được bộ chấm độc lập xác minh: "+clampMastery(state.masteryPercent)+"%.":"",
+    state.allowFinal?"ĐÃ ĐỦ NGƯỠNG 70% ĐỂ CHỐT LỜI GIẢI.":""
   ].filter(Boolean).join("\n");
   return [
     "Bạn là trợ giảng AI trên website Thầy Minh Chuyên Tin, không phải chính thầy Minh.",
