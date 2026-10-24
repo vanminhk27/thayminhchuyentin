@@ -118,7 +118,7 @@ jobs:
               const [hr,pr]=await Promise.all([fetch(health,{cache:"no-store"}),fetch(page,{cache:"no-store"})]);
               const h=await hr.json().catch(()=>({}));
               const html=await pr.text();
-              const workerOk=hr.ok&&h.promptVersion==="2026-10-03-r3";
+              const workerOk=hr.ok&&h.promptVersion==="2026-10-24-r4";
               const pageOk=pr.ok&&html.includes('id="conversationList"')&&html.includes("assets/ai-code-tutor.js?v=");
               last=JSON.stringify({workerStatus:hr.status,promptVersion:h.promptVersion,pageStatus:pr.status,workerOk,pageOk});
               if(workerOk&&pageOk){
