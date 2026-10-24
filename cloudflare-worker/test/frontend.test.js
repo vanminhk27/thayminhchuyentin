@@ -172,10 +172,10 @@ test("programming modulo notation is normalized before KaTeX",()=>{
   const fn=(0,eval)("("+js.slice(start,end).trim()+")");
   const raw="UCLN của ( a ) và ( b ) cũng là UCLN của ( b ) và ( a \\\\pmod b ).";
   const fixed=fn(raw);
-  assert.equal(fixed.includes("\\(a\\)"),true);
-  assert.equal(fixed.includes("\\(b\\)"),true);
+  assert.equal(fixed.includes("( a )"),true);
+  assert.equal(fixed.includes("( b )"),true);
   assert.equal(fixed.includes("`a % b`"),true);
-  assert.equal(fixed.includes("\\pmod"),false);
+  assert.equal(fixed.includes("\\\\pmod"),false);
 });
 
 
@@ -186,4 +186,23 @@ test("final stage renders complete solution without another question",()=>{
   assert.match(js,/Code hoàn chỉnh/);
   assert.match(js,/Đã chốt lời giải/);
   assert.match(js,/response\.stage==="final"\?"":/);
+});
+
+
+test("code blocks are never rewritten as math",()=>{
+  const start=js.indexOf("function normalizeProgrammingMath");
+  const end=js.indexOf("function normalizeBareLatex",start);
+  const fn=(0,eval)("("+js.slice(start,end).trim()+")");
+  const ticks=String.fromCharCode(96).repeat(3);
+  const raw=ticks+"python\\nprint(a)\\nprint(i)\\nif (a):\\n    print(b)\\n"+ticks;
+  const fixed=fn(raw);
+  assert.equal(fixed,raw);
+  assert.equal(fixed.includes("print\\\\(a\\\\)"),false);
+});
+
+test("inline code is never rewritten as math",()=>{
+  const start=js.indexOf("function normalizeProgrammingMath");
+  const end=js.indexOf("function normalizeBareLatex",start);
+  const fn=(0,eval)("("+js.slice(start,end).trim()+")");
+  assert.equal(fn("Dùng `print(a)` để in kết quả."),"Dùng `print(a)` để in kết quả.");
 });
