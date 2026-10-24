@@ -164,7 +164,7 @@ function systemPrompt(language,level,state={}){
   ].join("\n");
 }
 function mathSystemPrompt(track,level,state={}){
-  const scope=track==="thcs"?"THCS":track==="thpt"?"THPT":track==="hsg"?"HSG/Olympic":"tự nhận diện";
+  const scope=track==="tieu-hoc"?"Tiểu học":track==="thcs"?"THCS":track==="thpt"?"THPT":track==="hsg"?"HSG/Olympic":"tự nhận diện";
   const mode=normalizeLevel(level);
   const serverState=[
     "Phạm vi Toán: "+scope+".",
