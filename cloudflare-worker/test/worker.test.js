@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker,{
   parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,
-  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,normalizeTutorText,repairJsonBackslashes,parseTutorResponse,
+  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,shouldAllowFinalization,normalizeTutorText,repairJsonBackslashes,parseTutorResponse,
   structuredText,bestEffortRateLimit,dailyQuotaError,staticFallback
 } from "../src/index.js";
 
@@ -257,4 +257,75 @@ test("prompt tells Gemini to avoid pmod for programming remainder",()=>{
 test("normalizeTutorText converts pmod to programming remainder notation",()=>{
   assert.equal(normalizeTutorText("UCLN của ( a \\pmod b )"),"UCLN của `a % b`");
   assert.equal(normalizeTutorText("x \\\\pmod y"),"`x % y`");
+});
+
+
+test("finalization opens only after sufficient progress",()=>{
+  assert.equal(shouldAllowFinalization("Cho em code hoàn chỉnh",{hintStep:0},[]),false);
+  assert.equal(shouldAllowFinalization("Em đã làm như sau: dùng prefix sum",{hintStep:2},[{role:"user",text:"bài"},{role:"model",text:"gợi ý"}]),true);
+  assert.equal(shouldAllowFinalization("Chốt lời giải giúp em",{hintStep:3},[]),true);
+});
+
+test("early-stage prompt still forbids full solution",()=>{
+  const p=systemPrompt("python","hint",{hintStep:0,allowFinal:false});
+  assert.match(p,/Không cung cấp chương trình hay lời giải hoàn chỉnh ở giai đoạn đầu/);
+  assert.doesNotMatch(p,/GIAI ĐOẠN CHỐT/);
+});
+
+test("late-stage prompt explicitly allows final answer",()=>{
+  const p=systemPrompt("python","guide",{hintStep:3,allowFinal:true});
+  assert.match(p,/GIAI ĐOẠN CHỐT/);
+  assert.match(p,/code hoàn chỉnh nếu phù hợp/);
+  assert.match(p,/không cố giữ lập trường chỉ-gợi-ý/);
+});
+
+test("final structured response has no follow-up question",()=>{
+  const r=parseTutorResponse(JSON.stringify({
+    stage:"final",
+    observation:"Em đã nắm đúng hướng.",
+    final_solution:"Dùng Euclid lặp đến khi số dư bằng 0.",
+    final_code:"def gcd(a,b):\n    while b:\n        a,b=b,a%b\n    return a",
+    complexity:"O(log(min(a,b)))",
+    next_question:"không nên còn câu này"
+  }));
+  assert.equal(r.stage,"final");
+  assert.equal(r.next_question,"");
+  assert.ok(r.final_solution);
+  assert.ok(r.final_code);
+});
+
+test("worker allows complete code after sufficient tutoring progress",async()=>{
+  const oldFetch=globalThis.fetch;
+  globalThis.fetch=async()=>geminiOk({
+    stage:"final",
+    observation:"Em đã đi đúng gần hết.",
+    hint:"",
+    check_test:"",
+    next_question:"",
+    needs_clarification:false,
+    clarification_question:"",
+    final_solution:"Dùng thuật toán Euclid cho đến khi b bằng 0.",
+    final_code:"def gcd(a,b):\n    while b:\n        a,b=b,a%b\n    return a",
+    complexity:"O(log(min(a,b)))"
+  });
+  try{
+    const r=await worker.fetch(makeRequest({
+      requestId:"r-final",sessionId:"s-final",
+      message:"Em đã hiểu rồi, chốt lời giải và code giúp em",
+      language:"python",level:"guide",
+      history:[
+        {role:"user",text:"Em làm thế này được không?"},
+        {role:"model",text:"Gợi ý bước 1"},
+        {role:"user",text:"Em đã sửa theo gợi ý."},
+        {role:"model",text:"Gợi ý bước 2"}
+      ],
+      state:{hintStep:3,pendingQuestion:""}
+    }),env);
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.allowFinal,true);
+    assert.equal(data.response.stage,"final");
+    assert.match(data.answer,/Code hoàn chỉnh/);
+    assert.match(data.answer,/def gcd/);
+  }finally{globalThis.fetch=oldFetch}
 });
