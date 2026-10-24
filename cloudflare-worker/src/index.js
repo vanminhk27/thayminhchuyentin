@@ -1,5 +1,5 @@
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
-const PROMPT_VERSION="2026-10-24-r9";
+const PROMPT_VERSION="2026-10-24-r10";
 const LEVELS={
   hint:"Chỉ một gợi ý ngắn, có thể một phản ví dụ nhỏ, rồi kết thúc bằng đúng một câu hỏi cụ thể.",
   guide:"Chỉ trình bày bước hiện tại, không liệt kê trước các bước sau; dừng lại và chờ học sinh phản hồi."
@@ -72,7 +72,7 @@ async function evaluateMastery({problem,message,history,language,subject="code",
   const payload={
     system_instruction:{parts:[{text:evaluatorPrompt}]},
     contents:[{role:"user",parts:[{text:evidenceText}]}],
-    generationConfig:{temperature:0,maxOutputTokens:500,responseMimeType:"application/json"}
+    generationConfig:{maxOutputTokens:500,responseMimeType:"application/json",thinkingConfig:{thinkingLevel:"low"}}
   };
   const models=[...new Set([model,"gemini-3.1-flash-lite","gemini-3.8-flash"].filter(Boolean))];
   let lastReason="Evaluator unavailable.";
@@ -400,7 +400,7 @@ function structuredText(r){
   return parts.join("\n\n");
 }
 function selectModel(value){
-  const allowed=new Set(["gemini-3.8-flash","gemini-3.7-flash","gemini-3.6-flash","gemini-3.5-flash","gemini-3.5-flash-lite","gemini-3.1-flash-lite"]);
+  const allowed=new Set(["gemini-3.8-flash","gemini-3.6-flash","gemini-3.5-flash-lite","gemini-3.1-flash-lite"]);
   return allowed.has(value)?value:"gemini-3.8-flash";
 }
 function nowWindow(map,key,limit,now=Date.now()){
@@ -482,7 +482,7 @@ export default {
     const allowed=env.ALLOWED_ORIGIN||"https://thayminhchuyentin.io.vn";
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors(origin,allowed)});
     if(request.method==="GET"&&(url.pathname==="/"||url.pathname==="/health")){
-      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL),promptVersion:PROMPT_VERSION,geminiConfigured:Boolean(env.GEMINI_API_KEY)},200,origin,allowed);
+      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL),modelOrder:[selectModel(env.GEMINI_MODEL),"gemini-3.5-flash-lite","gemini-3.1-flash-lite"],apiMode:"generateContent-v1beta",promptVersion:PROMPT_VERSION,geminiConfigured:Boolean(env.GEMINI_API_KEY)},200,origin,allowed);
     }
     if(request.method!=="POST"||!["/","/api/ai-tutor"].includes(url.pathname))return json({error:"Not found"},404,origin,allowed);
     if(origin&&!isAllowedOrigin(origin,allowed))return json({error:"Origin không được phép.",code:"ORIGIN_DENIED"},403,origin,allowed);
@@ -540,13 +540,14 @@ export default {
       const payload={
         system_instruction:{parts:[{text:prompt}]},
         contents:toGeminiContents(body.history,message,image),
-        generationConfig:{temperature:0.15,maxOutputTokens:allowFinal?1800:(level==="hint"?700:1000),responseMimeType:"application/json"}
+        generationConfig:{maxOutputTokens:allowFinal?1800:(level==="hint"?700:1000),responseMimeType:"application/json",thinkingConfig:{thinkingLevel:"low"}}
       };
 
       const configured=selectModel(env.GEMINI_MODEL);
-      const primary=image?configured:"gemini-3.5-flash-lite";
-      const fallbackOrder=image?["gemini-3.5-flash-lite","gemini-3.1-flash-lite"]:["gemini-3.1-flash-lite",configured];
+      const primary=configured;
+      const fallbackOrder=["gemini-3.5-flash-lite","gemini-3.1-flash-lite"];
       const models=[...new Set([primary,...fallbackOrder])];
+      const attempts=[];
       let lastStatus=502,lastDetail="Không kết nối được Gemini.",timedOut=false;
 
       for(const model of models){
@@ -555,10 +556,12 @@ export default {
           try{upstream=await geminiFetch(model,payload,env.GEMINI_API_KEY,12000)}
           catch(e){
             timedOut=true;
+            attempts.push({model,status:0,error:"timeout"});
             if(attempt===0){await sleep(350+Math.floor(Math.random()*150));continue}
             break;
           }
           const data=await upstream.json().catch(()=>({}));
+          attempts.push({model,status:upstream.status,error:upstream.ok?"":String(data&&data.error&&data.error.status||data&&data.error&&data.error.message||"").slice(0,80)});
           if(upstream.ok){
             let response=parseTutorResponse(extractAnswer(data));
             if(subject==="math")response=normalizeMathResponse(response);
@@ -611,7 +614,7 @@ export default {
       return json({
         requestId,sessionId,subject,response:fallback,answer:structuredText(fallback),level,
         model:"fallback",fallback:true,degraded:true,notice,code,allowFinal:false,masteryPercent:0,
-        promptVersion:PROMPT_VERSION
+        attempts,promptVersion:PROMPT_VERSION
       },200,origin,allowed);
     }finally{
       if(sessionId)inFlightSessions.delete(sessionId);
