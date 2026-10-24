@@ -204,10 +204,14 @@ function repairMalformedMath(text){
   }).join("\n");
 }
 function normalizeProgrammingMath(text){
-  return String(text==null?"":text)
-    .replace(/\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\s*\)/g,"`$1 % $2`")
-    .replace(/\b([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\b/g,"`$1 % $2`")
-    .replace(/\(\s*([A-Za-z])\s*\)/g,"\\($1\\)");
+  const raw=String(text==null?"":text);
+  const protectedPattern=/(```[\s\S]*?```|`[^`\n]*`)/g;
+  return raw.split(protectedPattern).map((part,index)=>{
+    if(index%2===1)return part;
+    return part
+      .replace(/\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\s*\)/g,"`$1 % $2`")
+      .replace(/\b([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\b/g,"`$1 % $2`");
+  }).join("");
 }
 function normalizeBareLatex(text){
   return String(text==null?"":text).split("\n").map(line=>{
