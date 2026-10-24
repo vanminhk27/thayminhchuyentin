@@ -224,14 +224,30 @@ function mathSystemPrompt(track,level,state={}){
 }
 function toGeminiContents(history,message,image){
   const contents=[];
+  const pushText=(role,text)=>{
+    const value=String(text||"").slice(0,6000);
+    if(!value)return;
+    const last=contents[contents.length-1];
+    if(last&&last.role===role&&Array.isArray(last.parts)&&last.parts.length===1&&last.parts[0].text){
+      last.parts[0].text=(last.parts[0].text+"\n\n"+value).slice(0,9000);
+    }else{
+      contents.push({role,parts:[{text:value}]});
+    }
+  };
   const safe=Array.isArray(history)?history.slice(-LIMITS.historyTurns):[];
   for(const h of safe){
     if(!h||!h.text)continue;
-    contents.push({role:h.role==="model"?"model":"user",parts:[{text:String(h.text).slice(0,6000)}]});
+    pushText(h.role==="model"?"model":"user",h.text);
   }
-  const parts=[{text:message||"Hãy đọc nội dung ảnh, nêu chỗ chưa rõ nếu có, rồi chỉ đưa một gợi ý."}];
-  if(image)parts.push({inline_data:{mime_type:image.mimeType,data:image.data}});
-  contents.push({role:"user",parts});
+  const finalText=message||"Hãy đọc nội dung ảnh, nêu chỗ chưa rõ nếu có, rồi chỉ đưa một gợi ý.";
+  const last=contents[contents.length-1];
+  if(last&&last.role==="user"&&!image&&last.parts&&last.parts[0]&&last.parts[0].text){
+    last.parts[0].text=(last.parts[0].text+"\n\n"+String(finalText)).slice(0,12000);
+  }else{
+    const parts=[{text:String(finalText)}];
+    if(image)parts.push({inline_data:{mime_type:image.mimeType,data:image.data}});
+    contents.push({role:"user",parts});
+  }
   return contents;
 }
 function extractAnswer(data){
@@ -507,9 +523,10 @@ export default {
               code:"DAILY_QUOTA_EXHAUSTED",requestId,fallback,promptVersion:PROMPT_VERSION
             },429,origin,allowed);
           }
-          if(![429,500,502,503,504].includes(upstream.status)){
-            telemetry({requestId,model,status:upstream.status,latencyMs:Date.now()-started,errorCode:"UPSTREAM_ERROR"});
-            return json({error:"Gemini từ chối yêu cầu này.",code:"UPSTREAM_ERROR",requestId},upstream.status,origin,allowed);
+          const retryable=[400,404,429,500,502,503,504].includes(upstream.status);
+          if(!retryable){
+            telemetry({requestId,subject,model,status:upstream.status,latencyMs:Date.now()-started,errorCode:"UPSTREAM_ERROR"});
+            break;
           }
           if(attempt===0)await sleep(retryDelay(upstream,attempt));
         }
