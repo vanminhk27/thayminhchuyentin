@@ -482,7 +482,7 @@ export default {
     const allowed=env.ALLOWED_ORIGIN||"https://thayminhchuyentin.io.vn";
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors(origin,allowed)});
     if(request.method==="GET"&&(url.pathname==="/"||url.pathname==="/health")){
-      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL),modelOrder:[selectModel(env.GEMINI_MODEL),"gemini-3.5-flash-lite","gemini-3.1-flash-lite"],apiMode:"generateContent-v1beta",promptVersion:PROMPT_VERSION,geminiConfigured:Boolean(env.GEMINI_API_KEY)},200,origin,allowed);
+      return json({ok:true,service:"Thầy Minh AI Tutor",model:selectModel(env.GEMINI_MODEL),modelOrder:{regular:["gemini-3.5-flash-lite","gemini-3.1-flash-lite",selectModel(env.GEMINI_MODEL)],complex:[selectModel(env.GEMINI_MODEL),"gemini-3.5-flash-lite","gemini-3.1-flash-lite"]},apiMode:"generateContent-v1beta",promptVersion:PROMPT_VERSION,geminiConfigured:Boolean(env.GEMINI_API_KEY)},200,origin,allowed);
     }
     if(request.method!=="POST"||!["/","/api/ai-tutor"].includes(url.pathname))return json({error:"Not found"},404,origin,allowed);
     if(origin&&!isAllowedOrigin(origin,allowed))return json({error:"Origin không được phép.",code:"ORIGIN_DENIED"},403,origin,allowed);
@@ -544,11 +544,11 @@ export default {
       };
 
       const configured=selectModel(env.GEMINI_MODEL);
-      const primary=configured;
-      const fallbackOrder=["gemini-3.5-flash-lite","gemini-3.1-flash-lite"];
+      const primary=(image||allowFinal)?configured:"gemini-3.5-flash-lite";
+      const fallbackOrder=primary===configured?["gemini-3.5-flash-lite","gemini-3.1-flash-lite"]:["gemini-3.1-flash-lite",configured];
       const models=[...new Set([primary,...fallbackOrder])];
       const attempts=[];
-      let lastStatus=502,lastDetail="Không kết nối được Gemini.",timedOut=false;
+      let lastStatus=502,lastDetail="Không kết nối được Gemini.",timedOut=false,dailyQuotaSeen=false;
 
       for(const model of models){
         for(let attempt=0;attempt<2;attempt++){
@@ -593,12 +593,8 @@ export default {
           lastStatus=upstream.status;
           lastDetail=data&&data.error&&data.error.message?data.error.message:"Gemini API trả về lỗi.";
           if(dailyQuotaError(upstream.status,lastDetail)){
-            const fallback=staticFallback(level,subject);
-            telemetry({requestId,model,status:429,latencyMs:Date.now()-started,errorCode:"DAILY_QUOTA_EXHAUSTED"});
-            return json({
-              error:"Hạn mức Gemini trong ngày đã hết. Bài của em vẫn được giữ nguyên.",
-              code:"DAILY_QUOTA_EXHAUSTED",requestId,fallback,promptVersion:PROMPT_VERSION
-            },429,origin,allowed);
+            dailyQuotaSeen=true;
+            break;
           }
           const retryable=[400,404,429,500,502,503,504].includes(upstream.status);
           if(!retryable){
@@ -610,6 +606,13 @@ export default {
       }
 
       const fallback=staticFallback(level,subject);
+      if(dailyQuotaSeen&&attempts.length&&attempts.every(a=>a.status===429)){
+        telemetry({requestId,subject,model:"fallback",status:429,latencyMs:Date.now()-started,errorCode:"DAILY_QUOTA_EXHAUSTED",degraded:true});
+        return json({
+          error:"Hạn mức Gemini trong ngày của các model khả dụng đã hết. Bài của em vẫn được giữ nguyên.",
+          code:"DAILY_QUOTA_EXHAUSTED",requestId,sessionId,subject,fallback,attempts,promptVersion:PROMPT_VERSION
+        },429,origin,allowed);
+      }
       const code=timedOut?"AI_TIMEOUT":lastStatus===429?"AI_BUSY":"AI_UNAVAILABLE";
       const notice=timedOut?"AI đang phản hồi chậm; hệ thống đã chuyển sang gợi ý dự phòng.":"Gemini đang bận; hệ thống đã chuyển sang gợi ý dự phòng.";
       telemetry({requestId,subject,model:"fallback",status:200,latencyMs:Date.now()-started,errorCode:code,degraded:true});
