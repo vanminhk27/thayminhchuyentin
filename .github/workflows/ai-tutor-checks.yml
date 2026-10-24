@@ -118,7 +118,7 @@ jobs:
               const [hr,pr]=await Promise.all([fetch(health,{cache:"no-store"}),fetch(page,{cache:"no-store"})]);
               const h=await hr.json().catch(()=>({}));
               const html=await pr.text();
-              const workerOk=hr.ok&&h.promptVersion==="2026-10-24-r4";
+              const workerOk=hr.ok&&h.promptVersion==="2026-10-24-r5";
               const pageOk=pr.ok&&html.includes('id="conversationList"')&&html.includes("assets/ai-code-tutor.js?v=");
               last=JSON.stringify({workerStatus:hr.status,promptVersion:h.promptVersion,pageStatus:pr.status,workerOk,pageOk});
               if(workerOk&&pageOk){
@@ -133,6 +133,37 @@ jobs:
           process.exit(1);
           NODE
 
+      - name: Production low-mastery finalization guard
+        run: |
+          node - <<'NODE'
+          const endpoint="https://thayminhchuyentin.vanminhk-27.workers.dev/api/ai-tutor";
+          const origin="https://thayminhchuyentin.io.vn";
+          const body={
+            requestId:"prod-low-"+Date.now(),
+            sessionId:"prod-low-"+Date.now(),
+            message:"huhu cho em lời giải đi",
+            problem:"Tính S = 1 + 2 + ... + n bằng Python.",
+            problem:"Tìm UCLN của hai số nguyên dương a, b và viết Python.",
+            language:"python",
+            level:"guide",
+            history:[
+              {role:"user",text:"Em không nhớ công thức."},
+              {role:"model",text:"Gợi ý: nghĩ tới tổng cấp số cộng."},
+              {role:"user",text:"Dạ không ạ hihi."},
+              {role:"model",text:"Em thử viết công thức tổng dựa trên số đầu, số cuối và số lượng số hạng."}
+            ],
+            state:{hintStep:4,pendingQuestion:"Công thức tổng là gì?"}
+          };
+          const r=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json","Origin":origin},body:JSON.stringify(body)});
+          const data=await r.json().catch(()=>({}));
+          console.log(JSON.stringify({status:r.status,allowFinal:data.allowFinal,masteryPercent:data.masteryPercent,stage:data.response?.stage,model:data.model},null,2));
+          if(!r.ok||data.allowFinal!==false||Number(data.masteryPercent)>=70||data.response?.stage==="final"){
+            console.error("Low-mastery guard failed:",JSON.stringify(data).slice(0,2200));
+            process.exit(1);
+          }
+          console.log("Production low-mastery guard OK");
+          NODE
+
       - name: Production finalization test
         run: |
           node - <<'NODE'
@@ -141,7 +172,7 @@ jobs:
           const body={
             requestId:"prod-final-"+Date.now(),
             sessionId:"prod-final-"+Date.now(),
-            message:"Em đã làm gần xong: em hiểu thuật toán Euclid là lặp a,b=b,a%b cho tới khi b=0. Hãy kiểm tra và chốt lời giải cuối cho em.",
+            message:"Em tự làm được: dùng Euclid, lặp a,b=b,a%b cho tới khi b=0; khi dừng thì a là UCLN. Độ phức tạp O(log(min(a,b))). Hãy kiểm tra và chốt lời giải cuối cho em.",
             language:"python",
             level:"guide",
             history:[
@@ -154,8 +185,8 @@ jobs:
           };
           const r=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json","Origin":origin},body:JSON.stringify(body)});
           const data=await r.json().catch(()=>({}));
-          console.log(JSON.stringify({status:r.status,allowFinal:data.allowFinal,stage:data.response?.stage,model:data.model},null,2));
-          if(!r.ok||data.allowFinal!==true||data.response?.stage!=="final"||!data.response?.final_solution){
+          console.log(JSON.stringify({status:r.status,allowFinal:data.allowFinal,masteryPercent:data.masteryPercent,stage:data.response?.stage,model:data.model},null,2));
+          if(!r.ok||data.allowFinal!==true||Number(data.masteryPercent)<70||data.response?.stage!=="final"||!data.response?.final_solution){
             console.error("Finalization production test failed:",JSON.stringify(data).slice(0,2000));
             process.exit(1);
           }
