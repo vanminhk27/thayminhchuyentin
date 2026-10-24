@@ -267,7 +267,7 @@ function repairLatexJsonEscapes(text){
   let s=String(text||"");
   const risky=["frac","dfrac","tfrac","times","theta","text","neq","nabla","nu","right","rho","beta","bmod","begin"];
   for(const cmd of risky){
-    const re=new RegExp("\\\\(?="+cmd+"\\b)","g");
+    const re=new RegExp("\\\\(?="+cmd+")","g");
     s=s.replace(re,"\\\\\\\\");
   }
   return s;
@@ -277,13 +277,13 @@ function repairLatexControlChars(value){
     .replace(/\u000crac\b/g,"\\\\frac")
     .replace(/\u0008eta\b/g,"\\\\beta")
     .replace(/\u0008mod\b/g,"\\\\bmod")
-    .replace(/\t(?=imes\b)/g,"\\\\t")
-    .replace(/\t(?=heta\b)/g,"\\\\t")
-    .replace(/\t(?=ext\b)/g,"\\\\t")
-    .replace(/\n(?=eq\b)/g,"\\\\n")
-    .replace(/\n(?=abla\b)/g,"\\\\n")
-    .replace(/\r(?=ight\b)/g,"\\\\r")
-    .replace(/\r(?=ho\b)/g,"\\\\r");
+    .replace(/\t(?=imes)/g,"\\\\t")
+    .replace(/\t(?=heta)/g,"\\\\t")
+    .replace(/\t(?=ext)/g,"\\\\t")
+    .replace(/\n(?=eq)/g,"\\\\n")
+    .replace(/\n(?=abla)/g,"\\\\n")
+    .replace(/\r(?=ight)/g,"\\\\r")
+    .replace(/\r(?=ho)/g,"\\\\r");
 }
 function wrapLegacyLatexParens(value){
   const s=String(value||"");
