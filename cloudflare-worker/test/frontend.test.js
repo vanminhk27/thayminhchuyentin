@@ -177,3 +177,13 @@ test("programming modulo notation is normalized before KaTeX",()=>{
   assert.equal(fixed.includes("`a % b`"),true);
   assert.equal(fixed.includes("\\pmod"),false);
 });
+
+
+test("final stage renders complete solution without another question",()=>{
+  assert.match(js,/response\.stage==="final"/);
+  assert.match(js,/Lời giải cuối/);
+  assert.match(js,/Độ phức tạp/);
+  assert.match(js,/Code hoàn chỉnh/);
+  assert.match(js,/Đã chốt lời giải/);
+  assert.match(js,/response\.stage==="final"\?"":/);
+});
