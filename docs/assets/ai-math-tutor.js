@@ -214,16 +214,39 @@ function normalizeProgrammingMath(text){
   }).join("");
 }
 function repairLegacyLatex(text){
-  return String(text==null?"":text)
+  const raw=String(text==null?"":text)
     .replace(/\uFFFD?rac\b/g,"\\frac")
     .replace(/\u000crac\b/g,"\\frac")
     .replace(/\t(?=imes\b)/g,"\\t")
     .replace(/\t(?=heta\b)/g,"\\t")
     .replace(/\t(?=ext\b)/g,"\\t")
     .replace(/\n(?=eq\b)/g,"\\n")
+    .replace(/\n(?=abla\b)/g,"\\n")
     .replace(/\r(?=ight\b)/g,"\\r")
-    .replace(/\r(?=ho\b)/g,"\\r")
-    .replace(/\((\s*\\(?:frac|dfrac|tfrac|sqrt|sum|prod|lim|log|ln|sin|cos|tan|theta|alpha|beta|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|right)[\s\S]*?)\)/g,(m,inner)=>"\\("+inner.trim()+"\\)");
+    .replace(/\r(?=ho\b)/g,"\\r");
+  const mathCommand=/^\s*\\(?:frac|dfrac|tfrac|sqrt|sum|prod|lim|log|ln|sin|cos|tan|theta|alpha|beta|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|right)\b/;
+  let out="",i=0;
+  while(i<raw.length){
+    if(raw[i]!=="("){out+=raw[i++];continue}
+    let depth=0,j=i;
+    for(;j<raw.length;j++){
+      if(raw[j]==="(")depth++;
+      else if(raw[j]===")"){
+        depth--;
+        if(depth===0)break;
+      }
+    }
+    if(j>=raw.length){out+=raw.slice(i);break}
+    const inner=raw.slice(i+1,j);
+    if(mathCommand.test(inner)){
+      out+="\\("+inner.trim()+"\\)";
+      i=j+1;
+    }else{
+      out+=raw.slice(i,j+1);
+      i=j+1;
+    }
+  }
+  return out;
 }
 function normalizeBareLatex(text){
   return String(text==null?"":text).split("\n").map(line=>{
