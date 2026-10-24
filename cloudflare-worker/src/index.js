@@ -451,9 +451,13 @@ export default {
             let response=parseTutorResponse(extractAnswer(data));
             let combined=structuredText(response);
             const finalAllowed=allowFinal&&response.stage==="final";
-            const leaked=!finalAllowed&&violatesTutorPolicy(combined);
+            const leaked=!allowFinal&&(response.stage==="final"||violatesTutorPolicy(combined));
             if(leaked){
-              response=normalizeStructured({
+              response=normalizeStructured(subject==="math"?{
+                observation:"Mình sẽ giữ đúng vai trò trợ giảng và chưa chốt lời giải khi em chưa đạt ngưỡng 70%.",
+                hint:"Hãy tập trung vào giả thiết, điều kiện hoặc phép biến đổi quan trọng nhất của bài.",
+                next_question:"Theo em, bước toán học then chốt tiếp theo cần làm là gì?"
+              }:{
                 observation:"Mình sẽ giữ đúng vai trò trợ giảng và không đưa lời giải hoàn chỉnh.",
                 hint:"Hãy xác định điều kiện hoặc lỗi quan trọng nhất của bài trước.",
                 next_question:"Theo em, ràng buộc nào đang quyết định hướng giải ở đây?"
