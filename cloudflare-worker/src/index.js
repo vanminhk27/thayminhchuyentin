@@ -583,7 +583,9 @@ export default {
             }
             telemetry({requestId,subject,model,status:200,latencyMs:Date.now()-started,fallback:model!==primary,rewritten:leaked});
             return json({
-              requestId,sessionId,subject,response,answer:combined,level,model,fallback:model!==primary,allowFinal,masteryPercent:mastery.mastery_percent,
+              requestId,sessionId,subject,response,answer:combined,level,model,fallback:model!==primary,
+              attempts:model!==primary?attempts:undefined,
+              allowFinal,masteryPercent:mastery.mastery_percent,
               promptVersion:PROMPT_VERSION,usage:data&&data.usageMetadata?data.usageMetadata:null
             },200,origin,allowed);
           }
