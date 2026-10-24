@@ -320,7 +320,7 @@ async function ask(message,kind){
 
   const controller=new AbortController();
   active={requestId,controller,version};setBusy(true);status.textContent="Trợ giảng AI đang suy nghĩ…";
-  const payload={requestId,sessionId,message:text,language:language.value,level:level.value,image:kind==="main"?imageData:null,history:historyBefore,state:{hintStep:tutorState.hintStep,pendingQuestion:tutorState.pendingQuestion}};
+  const payload={requestId,sessionId,message:text,problem:prompt.value.trim(),language:language.value,level:level.value,image:kind==="main"?imageData:null,history:historyBefore,state:{hintStep:tutorState.hintStep,pendingQuestion:tutorState.pendingQuestion}};
 
   try{
     const res=await requestTutor(payload,controller);
