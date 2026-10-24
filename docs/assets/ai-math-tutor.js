@@ -213,6 +213,15 @@ function normalizeProgrammingMath(text){
       .replace(/\b([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\b/g,"`$1 % $2`");
   }).join("");
 }
+function normalizeMathVoiceText(value){
+  return String(value==null?"":value)
+    .replace(/Thầy\s+trò\s+mình/gi,"Thầy và em")
+    .replace(/\bHọc sinh\b/gi,"Em")
+    .replace(/\bNgười học\b/gi,"Em")
+    .replace(/\btrợ giảng AI\b/gi,"Thầy")
+    .replace(/\bmình\b/gi,"em")
+    .replace(/\bbạn\b/gi,"em");
+}
 function repairLegacyLatex(text){
   const raw=String(text==null?"":text)
     .replace(/\uFFFD?rac\b/g,"\\frac")
@@ -224,8 +233,8 @@ function repairLegacyLatex(text){
     .replace(/\n(?=abla)/g,"\\n")
     .replace(/\r(?=ight)/g,"\\r")
     .replace(/\r(?=ho)/g,"\\r")
-    .replace(/\\{2,}(?=(?:frac|dfrac|tfrac|times|theta|text|neq|nabla|nu|right|rho|beta|bmod|begin|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|approx|infty|alpha|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|mathrm|mathbf|mathbb))/g,"\\");
-  const mathCommand=/^\s*\\(?:frac|dfrac|tfrac|sqrt|sum|prod|lim|log|ln|sin|cos|tan|theta|alpha|beta|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|right)\b/;
+    .replace(/\\{2,}(?=(?:frac|dfrac|tfrac|times|theta|text|neq|nabla|nu|right|rho|beta|bmod|begin|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|approx|infty|alpha|gamma|delta|lambda|mu|pi|sigma|phi|omega|dots|ldots|cdots|left|mathrm|mathbf|mathbb))/g,"\\");
+  const hasMathCommand=/\\(?:frac|dfrac|tfrac|times|theta|text|neq|nabla|nu|right|rho|beta|bmod|begin|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|approx|infty|alpha|gamma|delta|lambda|mu|pi|sigma|phi|omega|dots|ldots|cdots|left|mathrm|mathbf|mathbb)\b/;
   let out="",i=0;
   while(i<raw.length){
     if(raw[i]!=="("){out+=raw[i++];continue}
@@ -239,7 +248,8 @@ function repairLegacyLatex(text){
     }
     if(j>=raw.length){out+=raw.slice(i);break}
     const inner=raw.slice(i+1,j);
-    if(mathCommand.test(inner)){
+    const looksLikeMath=hasMathCommand.test(inner)&&(/[=+\-*/^_<>]/.test(inner)||/\d/.test(inner)||/[A-Za-z]/.test(inner));
+    if(looksLikeMath){
       out+="\\("+inner.trim()+"\\)";
       i=j+1;
     }else{
@@ -271,7 +281,7 @@ function renderRich(target,text){
   try{
     if(window.marked&&window.DOMPurify){
       marked.setOptions({gfm:true,breaks:true});
-      const cleaned=normalizeBareLatex(repairLegacyLatex(repairMalformedMath(normalizeTutorMarkdown(raw))));
+      const cleaned=normalizeBareLatex(repairLegacyLatex(repairMalformedMath(normalizeTutorMarkdown(normalizeMathVoiceText(raw)))));
       target.innerHTML=DOMPurify.sanitize(marked.parse(cleaned),{USE_PROFILES:{html:true}});renderMath(target);return;
     }
   }catch(e){console.warn("Render fallback",e)}
