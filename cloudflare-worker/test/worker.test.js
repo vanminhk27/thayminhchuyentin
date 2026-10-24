@@ -468,3 +468,38 @@ test("math graceful fallback uses math wording",()=>{
   assert.match(f.next_question,/bước toán học/);
   assert.doesNotMatch(f.hint,/Input|Output/);
 });
+
+
+test("Gemini contents merge consecutive user turns",()=>{
+  const contents=toGeminiContents([
+    {role:"user",text:"S=1+2+3+...+n"},
+    {role:"user",text:"giải giúp em"}
+  ],"gợi ý tiếp theo",null);
+  assert.equal(contents.length,1);
+  assert.equal(contents[0].role,"user");
+  assert.match(contents[0].parts[0].text,/S=1\+2\+3/);
+  assert.match(contents[0].parts[0].text,/giải giúp em/);
+  assert.match(contents[0].parts[0].text,/gợi ý tiếp theo/);
+});
+
+test("Gemini rejected 400 falls through to graceful fallback",async()=>{
+  const oldFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(JSON.stringify({error:{message:"invalid argument"}}),{status:400,headers:{"content-type":"application/json"}});
+  try{
+    const r=await worker.fetch(makeRequest({
+      requestId:"r-400",sessionId:"s-400",
+      subject:"math",track:"thcs",language:"math",level:"hint",
+      problem:"S=1+2+3+...+n",
+      message:"giải giúp em",
+      history:[{role:"user",text:"S=1+2+3+...+n"}],
+      state:{hintStep:0,pendingQuestion:""}
+    }),env);
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.subject,"math");
+    assert.equal(data.degraded,true);
+    assert.equal(data.model,"fallback");
+    assert.equal(data.response.stage,"hint");
+    assert.ok(data.response.hint);
+  }finally{globalThis.fetch=oldFetch}
+});
