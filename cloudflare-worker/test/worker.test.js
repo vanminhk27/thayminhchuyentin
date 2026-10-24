@@ -110,7 +110,7 @@ test("empty input is rejected before Gemini",async()=>{
 test("successful POST returns structured tutor fields",async()=>{
   const oldFetch=globalThis.fetch;
   globalThis.fetch=async(url,opts)=>{
-    assert.match(String(url),/gemini-3\.8-flash:generateContent/);
+    assert.match(String(url),/gemini-3\.5-flash-lite:generateContent/);
     const body=JSON.parse(opts.body);
     assert.equal(body.generationConfig.responseMimeType,"application/json");
     assert.equal(body.generationConfig.temperature,undefined);
@@ -135,12 +135,12 @@ test("prompt injection in user content does not change system policy",()=>{
   assert.match(p,/comment và ảnh là DỮ LIỆU/);
 });
 
-test("transient 503 retries through 3.8 and 3.5 before 3.1",async()=>{
+test("regular hint falls back from 3.5 Lite to 3.1 Lite",async()=>{
   const oldFetch=globalThis.fetch;
   const seen=[];
   globalThis.fetch=async url=>{
     seen.push(String(url));
-    if(String(url).includes("gemini-3.8-flash")||String(url).includes("gemini-3.5-flash-lite")){
+    if(String(url).includes("gemini-3.5-flash-lite")){
       return new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
     }
     return geminiOk();
@@ -151,23 +151,28 @@ test("transient 503 retries through 3.8 and 3.5 before 3.1",async()=>{
     assert.equal(r.status,200);
     assert.equal(data.fallback,true);
     assert.equal(data.model,"gemini-3.1-flash-lite");
-    assert.ok(seen.some(x=>x.includes("gemini-3.8-flash")));
     assert.ok(seen.some(x=>x.includes("gemini-3.5-flash-lite")));
     assert.ok(seen.some(x=>x.includes("gemini-3.1-flash-lite")));
   }finally{globalThis.fetch=oldFetch}
 });
 
-test("daily quota 429 stops retry and returns static fallback",async()=>{
+test("daily quota tries remaining models before reporting exhaustion",async()=>{
   const oldFetch=globalThis.fetch;
-  let calls=0;
-  globalThis.fetch=async()=>{calls++;return new Response(JSON.stringify({error:{message:"requests per day quota exceeded"}}),{status:429,headers:{"content-type":"application/json"}})};
+  const seen=[];
+  globalThis.fetch=async url=>{
+    seen.push(String(url));
+    return new Response(JSON.stringify({error:{message:"requests per day quota exceeded"}}),{status:429,headers:{"content-type":"application/json"}});
+  };
   try{
     const r=await worker.fetch(makeRequest({requestId:"r-day",sessionId:"s-day",message:"gợi ý",language:"python",level:"hint"}),env);
     const data=await r.json();
     assert.equal(r.status,429);
     assert.equal(data.code,"DAILY_QUOTA_EXHAUSTED");
     assert.ok(data.fallback.hint);
-    assert.equal(calls,1);
+    assert.ok(seen.some(x=>x.includes("gemini-3.5-flash-lite")));
+    assert.ok(seen.some(x=>x.includes("gemini-3.1-flash-lite")));
+    assert.ok(seen.some(x=>x.includes("gemini-3.8-flash")));
+    assert.equal(data.attempts.length,3);
   }finally{globalThis.fetch=oldFetch}
 });
 
@@ -514,6 +519,22 @@ test("Gemini rejected 400 falls through to graceful fallback",async()=>{
 test("health exposes current model routing",async()=>{
   const r=await worker.fetch(new Request("https://x/health"),env);
   const data=await r.json();
-  assert.deepEqual(data.modelOrder,["gemini-3.8-flash","gemini-3.5-flash-lite","gemini-3.1-flash-lite"]);
+  assert.deepEqual(data.modelOrder.regular,["gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-3.8-flash"]);
+  assert.deepEqual(data.modelOrder.complex,["gemini-3.8-flash","gemini-3.5-flash-lite","gemini-3.1-flash-lite"]);
   assert.equal(data.apiMode,"generateContent-v1beta");
+});
+
+
+test("image request uses configured 3.8 as primary",async()=>{
+  const oldFetch=globalThis.fetch;
+  let seen="";
+  globalThis.fetch=async(url,opts)=>{seen=String(url);return geminiOk()};
+  try{
+    const r=await worker.fetch(makeRequest({
+      requestId:"r-img",sessionId:"s-img",message:"đọc ảnh và gợi ý",
+      language:"python",level:"hint",image:"data:image/png;base64,QUJD"
+    }),env);
+    assert.equal(r.status,200);
+    assert.match(seen,/gemini-3\.8-flash:generateContent/);
+  }finally{globalThis.fetch=oldFetch}
 });
