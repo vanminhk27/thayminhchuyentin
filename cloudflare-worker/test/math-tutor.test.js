@@ -243,3 +243,27 @@ test("math verified mastery above 70 unlocks final solution",async()=>{
     assert.match(data.answer,/x=2/);
   }finally{globalThis.fetch=old}
 });
+
+
+test("math latex escapes render standard fractions and multiplication",()=>{
+  assert.match(js,/function repairLegacyLatex/);
+  assert.match(js,/\\frac/);
+  assert.match(js,/\\times/);
+  assert.match(js,/renderMathInElement/);
+  assert.match(js,/left:"\\\\\("/);
+});
+
+test("math conversation uses teacher-student voice",()=>{
+  assert.match(html,/Lịch sử trao đổi với Thầy AI/);
+  assert.match(js,/role==="user"\?"Em":"Thầy"/);
+  const p=mathSystemPrompt("thcs","hint",{allowFinal:false,masteryPercent:20});
+  assert.match(p,/LUÔN xưng “Thầy” và gọi người học là “em”/);
+  assert.match(p,/Không dùng “mình”, “bạn”, “học sinh”, “trợ giảng AI”/);
+});
+
+test("malformed JSON latex is repaired before parsing",()=>{
+  const raw='{"stage":"hint","observation":"Công thức (\\frac{n(n+1)}{2})","hint":"Tính (\\frac{10\\times11}{2})","check_test":"","next_question":"Kết quả bằng bao nhiêu?","needs_clarification":false,"clarification_question":"","final_solution":"","final_code":"","complexity":""}';
+  const r=parseTutorResponse(raw);
+  assert.match(r.observation,/\\frac\{n\(n\+1\)\}\{2\}/);
+  assert.match(r.hint,/\\frac\{10\\times11\}\{2\}/);
+});
