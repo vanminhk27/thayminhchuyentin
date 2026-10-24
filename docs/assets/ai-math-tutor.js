@@ -50,7 +50,7 @@ function loadStoredConversations(){
       createdAt:Number(x.createdAt)||Date.now(),
       updatedAt:Number(x.updatedAt)||Date.now(),
       prompt:String(x.prompt||"").slice(0,30000),
-      track:["auto","thcs","thpt","hsg"].includes(x.track)?x.track:"auto",
+      track:["auto","tieu-hoc","thcs","thpt","hsg"].includes(x.track)?x.track:"auto",
       level:x.level==="guide"?"guide":"hint",
       turns:cloneTurns(x.turns),
       tutorState:{
@@ -138,7 +138,7 @@ function clearTransientMedia(){
 function renderConversationTurns(){
   chat.innerHTML="";
   if(!turns.length){
-    chat.innerHTML='<span class="empty">Hãy gửi đề bài hoặc code. Mỗi lượt AI chỉ mở thêm một bước và giữ lại lịch sử để em theo dõi mạch suy nghĩ.</span>';
+    chat.innerHTML='<span class="empty">Hãy gửi bài toán hoặc ảnh đề. Mỗi lượt AI chỉ mở thêm một bước và giữ lại lịch sử để em theo dõi mạch suy nghĩ.</span>';
     return;
   }
   for(const t of turns)appendTurn(t.role,t.text,{model:t.model,note:t.note,degraded:t.degraded},false);
@@ -168,7 +168,7 @@ function createNewConversation(){
   active=null;sessionVersion+=1;removeBlankCurrent();clearTransientMedia();
   const c=makeConversation();conversations.unshift(c);sessionId=c.id;requestSeq=0;turns=[];tutorState={hintStep:0,pendingQuestion:""};
   prompt.value="";track.value="auto";level.value="hint";followText.value="";resizeFollowInput();
-  chat.innerHTML='<span class="empty">Cuộc trò chuyện mới. Hãy dán đề bài/code hoặc đặt câu hỏi để bắt đầu.</span>';
+  chat.innerHTML='<span class="empty">Cuộc trò chuyện mới. Hãy dán bài toán, công thức hoặc ảnh đề để bắt đầu.</span>';
   status.textContent="Đã tạo cuộc trò chuyện mới.";setBusy(false);writeStoredConversations();renderConversationList();prompt.focus();
 }
 function deleteConversation(id){
