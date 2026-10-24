@@ -206,3 +206,23 @@ test("inline code is never rewritten as math",()=>{
   const fn=(0,eval)("("+js.slice(start,end).trim()+")");
   assert.equal(fn("Dùng `print(a)` để in kết quả."),"Dùng `print(a)` để in kết quả.");
 });
+
+
+test("follow-up composer supports Shift Enter multiline code",()=>{
+  assert.match(html,/<textarea id="followText"/);
+  assert.match(html,/Enter để gửi · Shift \+ Enter để xuống dòng/);
+  assert.match(js,/e\.key==="Enter"&&!e\.shiftKey&&!e\.isComposing/);
+  assert.match(js,/e\.preventDefault\(\)/);
+  assert.match(js,/submitFollowMessage\(\)/);
+});
+
+test("follow-up composer auto grows and resets after send",()=>{
+  assert.match(js,/function resizeFollowInput/);
+  assert.match(js,/Math\.min\(followText\.scrollHeight,180\)/);
+  assert.match(js,/followText\.value="";\s*resizeFollowInput\(\)/);
+});
+
+test("student multiline messages preserve line breaks",()=>{
+  assert.match(html,/\.turnUser \.turnBubble\{[^}]*white-space:pre-wrap/s);
+  assert.match(html,/tab-size:4/);
+});
