@@ -217,13 +217,13 @@ function repairLegacyLatex(text){
   const raw=String(text==null?"":text)
     .replace(/\uFFFD?rac\b/g,"\\frac")
     .replace(/\u000crac\b/g,"\\frac")
-    .replace(/\t(?=imes\b)/g,"\\t")
-    .replace(/\t(?=heta\b)/g,"\\t")
-    .replace(/\t(?=ext\b)/g,"\\t")
-    .replace(/\n(?=eq\b)/g,"\\n")
-    .replace(/\n(?=abla\b)/g,"\\n")
-    .replace(/\r(?=ight\b)/g,"\\r")
-    .replace(/\r(?=ho\b)/g,"\\r");
+    .replace(/\t(?=imes)/g,"\\t")
+    .replace(/\t(?=heta)/g,"\\t")
+    .replace(/\t(?=ext)/g,"\\t")
+    .replace(/\n(?=eq)/g,"\\n")
+    .replace(/\n(?=abla)/g,"\\n")
+    .replace(/\r(?=ight)/g,"\\r")
+    .replace(/\r(?=ho)/g,"\\r");
   const mathCommand=/^\s*\\(?:frac|dfrac|tfrac|sqrt|sum|prod|lim|log|ln|sin|cos|tan|theta|alpha|beta|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|right)\b/;
   let out="",i=0;
   while(i<raw.length){
