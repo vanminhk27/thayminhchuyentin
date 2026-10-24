@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import worker,{mathSystemPrompt} from "../src/index.js";
+import worker,{mathSystemPrompt,parseTutorResponse} from "../src/index.js";
 
 const html=readFileSync(new URL("../../docs/ai-goi-y-toan.html",import.meta.url),"utf8");
 const js=readFileSync(new URL("../../docs/assets/ai-math-tutor.js",import.meta.url),"utf8");
@@ -246,11 +246,16 @@ test("math verified mastery above 70 unlocks final solution",async()=>{
 
 
 test("math latex escapes render standard fractions and multiplication",()=>{
-  assert.match(js,/function repairLegacyLatex/);
-  assert.match(js,/\\frac/);
-  assert.match(js,/\\times/);
-  assert.match(js,/renderMathInElement/);
-  assert.match(js,/left:"\\\\\("/);
+  const start=js.indexOf("function repairLegacyLatex");
+  const end=js.indexOf("function normalizeBareLatex",start);
+  assert.ok(start>=0&&end>start);
+  const fn=(0,eval)("("+js.slice(start,end).trim()+")");
+  const formFeed=String.fromCharCode(12);
+  const tab=String.fromCharCode(9);
+  const raw="Công thức ("+formFeed+"rac{n(n+1)}{2}) và ("+formFeed+"rac{10"+tab+"imes11}{2}).";
+  const fixed=fn(raw);
+  assert.match(fixed,/\\frac\{n\(n\+1\)\}\{2\}/);
+  assert.match(fixed,/\\frac\{10\\times11\}\{2\}/);
 });
 
 test("math conversation uses teacher-student voice",()=>{
