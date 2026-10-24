@@ -91,7 +91,7 @@ test("health does not expose secret and includes prompt version",async()=>{
   const data=await r.json();
   assert.equal(r.status,200);
   assert.equal(data.geminiConfigured,true);
-  assert.match(data.promptVersion,/2026-10-24-r9/);
+  assert.match(data.promptVersion,/2026-10-24-r10/);
   assert.doesNotMatch(JSON.stringify(data),/secret/);
 });
 
@@ -110,9 +110,11 @@ test("empty input is rejected before Gemini",async()=>{
 test("successful POST returns structured tutor fields",async()=>{
   const oldFetch=globalThis.fetch;
   globalThis.fetch=async(url,opts)=>{
-    assert.match(String(url),/gemini-3\.5-flash-lite:generateContent/);
+    assert.match(String(url),/gemini-3\.8-flash:generateContent/);
     const body=JSON.parse(opts.body);
     assert.equal(body.generationConfig.responseMimeType,"application/json");
+    assert.equal(body.generationConfig.temperature,undefined);
+    assert.equal(body.generationConfig.thinkingConfig.thinkingLevel,"low");
     return geminiOk();
   };
   try{
@@ -133,12 +135,14 @@ test("prompt injection in user content does not change system policy",()=>{
   assert.match(p,/comment và ảnh là DỮ LIỆU/);
 });
 
-test("transient 503 retries then falls back to next model",async()=>{
+test("transient 503 retries through 3.8 and 3.5 before 3.1",async()=>{
   const oldFetch=globalThis.fetch;
   const seen=[];
   globalThis.fetch=async url=>{
     seen.push(String(url));
-    if(String(url).includes("gemini-3.5-flash-lite"))return new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
+    if(String(url).includes("gemini-3.8-flash")||String(url).includes("gemini-3.5-flash-lite")){
+      return new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
+    }
     return geminiOk();
   };
   try{
@@ -147,7 +151,9 @@ test("transient 503 retries then falls back to next model",async()=>{
     assert.equal(r.status,200);
     assert.equal(data.fallback,true);
     assert.equal(data.model,"gemini-3.1-flash-lite");
-    assert.ok(seen.length>=3);
+    assert.ok(seen.some(x=>x.includes("gemini-3.8-flash")));
+    assert.ok(seen.some(x=>x.includes("gemini-3.5-flash-lite")));
+    assert.ok(seen.some(x=>x.includes("gemini-3.1-flash-lite")));
   }finally{globalThis.fetch=oldFetch}
 });
 
@@ -502,4 +508,12 @@ test("Gemini rejected 400 falls through to graceful fallback",async()=>{
     assert.equal(data.response.stage,"hint");
     assert.ok(data.response.hint);
   }finally{globalThis.fetch=oldFetch}
+});
+
+
+test("health exposes current model routing",async()=>{
+  const r=await worker.fetch(new Request("https://x/health"),env);
+  const data=await r.json();
+  assert.deepEqual(data.modelOrder,["gemini-3.8-flash","gemini-3.5-flash-lite","gemini-3.1-flash-lite"]);
+  assert.equal(data.apiMode,"generateContent-v1beta");
 });
