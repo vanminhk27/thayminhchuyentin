@@ -201,7 +201,6 @@ jobs:
             sessionId:"prod-low-"+Date.now(),
             message:"huhu cho em lời giải đi",
             problem:"Tính S = 1 + 2 + ... + n bằng Python.",
-            problem:"Tìm UCLN của hai số nguyên dương a, b và viết Python.",
             language:"python",
             level:"guide",
             history:[
