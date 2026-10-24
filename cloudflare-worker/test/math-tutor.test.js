@@ -272,3 +272,39 @@ test("malformed JSON latex is repaired before parsing",()=>{
   assert.match(r.observation,/\\frac\{n\(n\+1\)\}\{2\}/);
   assert.match(r.hint,/\\frac\{10\\times11\}\{2\}/);
 });
+
+
+test("legacy dots expression is auto wrapped for KaTeX",()=>{
+  const start=js.indexOf("function repairLegacyLatex");
+  const end=js.indexOf("function normalizeBareLatex",start);
+  assert.ok(start>=0&&end>start);
+  const src=js.slice(start,end);
+  const repairStart=src.indexOf("function repairLegacyLatex");
+  const fn=(0,eval)("("+src.slice(repairStart).trim()+")");
+  const raw="(s = 1 + 2 + 3 + \\\\dots + n)";
+  const fixed=fn(raw);
+  assert.equal(fixed,"\\\\(s = 1 + 2 + 3 + \\\\dots + n\\\\)");
+});
+
+test("old math chat voice is normalized to Thầy-em",()=>{
+  const start=js.indexOf("function normalizeMathVoiceText");
+  const end=js.indexOf("function repairLegacyLatex",start);
+  assert.ok(start>=0&&end>start);
+  const fn=(0,eval)("("+js.slice(start,end).trim()+")");
+  const fixed=fn("Gợi ý: Thầy trò mình cùng xem công thức mà mình đã được học.");
+  assert.match(fixed,/Thầy và em/);
+  assert.match(fixed,/em đã được học/);
+  assert.doesNotMatch(fixed,/mình/i);
+});
+
+test("math prompt explicitly forbids unnatural mình phrasing",()=>{
+  const p=mathSystemPrompt("thcs","hint",{allowFinal:false,masteryPercent:10});
+  assert.match(p,/Tuyệt đối không dùng “mình”, “Thầy trò mình”/);
+  assert.match(p,/Thầy gợi ý em/);
+});
+
+test("math renderer supports dots frac sqrt and times commands",()=>{
+  assert.match(js,/dots\\|ldots\\|cdots/);
+  assert.match(js,/renderMathInElement/);
+  assert.match(html,/katex/);
+});
