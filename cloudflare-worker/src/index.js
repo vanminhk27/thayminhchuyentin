@@ -264,8 +264,13 @@ function stripJsonFence(text){
   return s.trim();
 }
 function repairLatexJsonEscapes(text){
-  const commands="frac|dfrac|tfrac|times|theta|text|neq|nabla|nu|right|rho|beta|bmod|begin|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|approx|infty|alpha|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|mathrm|mathbf|mathbb";
-  return String(text||"").replace(new RegExp("(?<!\\\\\\\\)\\\\\\\\("+commands+")\\\\b","g"),"\\\\\\\\\\\\\\\\$1");
+  let s=String(text||"");
+  const risky=["frac","dfrac","tfrac","times","theta","text","neq","nabla","nu","right","rho","beta","bmod","begin"];
+  for(const cmd of risky){
+    const re=new RegExp("\\\\(?="+cmd+"\\b)","g");
+    s=s.replace(re,"\\\\\\\\");
+  }
+  return s;
 }
 function repairLatexControlChars(value){
   return String(value||"")
