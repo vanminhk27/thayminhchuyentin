@@ -28,7 +28,7 @@ function shouldAllowFinalization(message,state={},history=[]){
   const userTurns=recent.filter(h=>h&&h.role!=="model"&&h.role!=="assistant").length;
   const hintStep=Math.max(0,Number(state&&state.hintStep)||0);
   const explicit=/\b(?:chốt|lời giải cuối|đáp án cuối|giải hoàn chỉnh|code hoàn chỉnh|viết code hoàn chỉnh|em làm gần xong|em làm được gần hết|90%|kiểm tra và chốt)\b/i.test(text);
-  const hasAttempt=/(?:^|\n)\s*(?:def\s+\w+\s*\(|#include\s*<|int\s+main\s*\()|\b(?:em nghĩ|ý tưởng của em|thuật toán của em|độ phức tạp|em làm như sau|em viết|code của em|em dùng)\b/i.test(text);
+  const hasAttempt=/(?:^|\n)\s*(?:def\s+\w+\s*\(|#include\s*<|int\s+main\s*\()|\b(?:em nghĩ|ý tưởng của em|thuật toán của em|độ phức tạp|em làm như sau|em đã làm như sau|em đã làm|em viết|code của em|em dùng)\b/i.test(text);
   const enoughProgress=hintStep>=3||userTurns>=3;
   const strongProgress=hintStep>=2&&hasAttempt;
   return enoughProgress||strongProgress||(explicit&&hintStep>=2);
