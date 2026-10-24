@@ -312,7 +312,9 @@ function wrapLegacyLatexParens(value){
   return out;
 }
 function normalizeTutorText(value){
-  return wrapLegacyLatexParens(repairLatexControlChars(value))
+  const repaired=wrapLegacyLatexParens(repairLatexControlChars(value))
+    .replace(/\\{2,}(?=(?:frac|dfrac|tfrac|times|theta|text|neq|nabla|nu|right|rho|beta|bmod|begin|sqrt|sum|prod|lim|log|ln|sin|cos|tan|leq|geq|approx|infty|alpha|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|mathrm|mathbf|mathbb)\b)/g,"\\");
+  return repaired
     .replace(/\(?\s*([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\s*\)?/g,"`$1 % $2`")
     .trim();
 }
