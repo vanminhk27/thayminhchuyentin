@@ -91,7 +91,7 @@ test("health does not expose secret and includes prompt version",async()=>{
   const data=await r.json();
   assert.equal(r.status,200);
   assert.equal(data.geminiConfigured,true);
-  assert.match(data.promptVersion,/2026-10-24-r6/);
+  assert.match(data.promptVersion,/2026-10-24-r7/);
   assert.doesNotMatch(JSON.stringify(data),/secret/);
 });
 
@@ -409,4 +409,36 @@ test("worker allows final answer when verified mastery reaches 70",async()=>{
     assert.match(data.answer,/n=int\(input\(\)\)/);
     assert.equal(calls,2);
   }finally{globalThis.fetch=oldFetch}
+});
+
+
+test("mastery evaluator falls back when primary model is busy",async()=>{
+  const old=globalThis.fetch;
+  const seen=[];
+  globalThis.fetch=async(url,opts)=>{
+    seen.push(String(url));
+    if(String(url).includes("gemini-3.5-flash-lite")){
+      return new Response(JSON.stringify({error:{message:"high demand"}}),{status:503,headers:{"content-type":"application/json"}});
+    }
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({
+      mastery_percent:76,
+      evidence:["Tự nêu đúng phương pháp"],
+      missing:["Thiếu trình bày nhỏ"],
+      reason:"Đủ nền tảng"
+    })}]}}]}),{status:200,headers:{"content-type":"application/json"}});
+  };
+  try{
+    const m=await evaluateMastery({
+      problem:"Giải 2x+1=5",
+      message:"Em chuyển được 2x=4 rồi x=2",
+      history:[],
+      language:"math",
+      subject:"math",
+      track:"thcs",
+      model:"gemini-3.5-flash-lite",
+      key:"secret"
+    });
+    assert.equal(m.mastery_percent,76);
+    assert.ok(seen.some(x=>x.includes("gemini-3.1-flash-lite")));
+  }finally{globalThis.fetch=old}
 });
