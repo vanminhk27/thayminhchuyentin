@@ -18,6 +18,7 @@ function ok(obj){
 test("math page has its own navigation and level selector",()=>{
   assert.match(html,/AI Gợi Ý Giải Toán/);
   assert.match(html,/id="track"/);
+  assert.match(html,/Toán Tiểu học/);
   assert.match(html,/Toán THCS/);
   assert.match(html,/Toán THPT/);
   assert.match(html,/HSG \/ Olympic/);
@@ -142,5 +143,103 @@ test("math huhu request below 70 cannot unlock final answer",async()=>{
     assert.equal(data.response.stage,"hint");
     assert.doesNotMatch(data.answer,/Lời giải cuối/);
     assert.equal(calls,2);
+  }finally{globalThis.fetch=old}
+});
+
+
+test("math primary-school prompt adapts scope",()=>{
+  const p=mathSystemPrompt("tieu-hoc","hint",{masteryPercent:0,allowFinal:false});
+  assert.match(p,/Phạm vi Toán: Tiểu học/);
+  assert.match(p,/chỉ mở MỘT bước suy luận mỗi lượt/);
+});
+
+test("math frontend wording is math-specific",()=>{
+  assert.match(js,/Hãy gửi bài toán hoặc ảnh đề/);
+  assert.match(js,/Hãy dán bài toán, công thức hoặc ảnh đề/);
+  assert.doesNotMatch(js,/Hãy gửi đề bài hoặc code/);
+});
+
+test("math low mastery blocks accidental final-stage leakage",async()=>{
+  const old=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async()=>{
+    calls++;
+    if(calls===1)return ok({mastery_percent:18,evidence:[],missing:["Chưa nêu phép biến đổi"],reason:"Chỉ xin đáp án"});
+    return ok({
+      stage:"final",
+      observation:"Đây là đáp án.",
+      hint:"",
+      check_test:"",
+      next_question:"",
+      needs_clarification:false,
+      clarification_question:"",
+      final_solution:"x=2",
+      final_code:"",
+      complexity:""
+    });
+  };
+  try{
+    const r=await worker.fetch(req({
+      requestId:"math-force-final",sessionId:"math-force-final",subject:"math",track:"thcs",
+      message:"cho em lời giải đi",
+      problem:"Giải phương trình 2x+1=5",
+      language:"math",level:"guide",
+      history:[{role:"user",text:"em chưa biết"},{role:"model",text:"Em thử chuyển vế."},{role:"user",text:"huhu"}],
+      state:{hintStep:5,pendingQuestion:""}
+    }),env);
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.allowFinal,false);
+    assert.equal(data.response.stage,"hint");
+    assert.doesNotMatch(data.answer,/x=2/);
+    assert.match(data.answer,/chưa chốt lời giải/i);
+  }finally{globalThis.fetch=old}
+});
+
+test("math verified mastery above 70 unlocks final solution",async()=>{
+  const old=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async()=>{
+    calls++;
+    if(calls===1)return ok({
+      mastery_percent:84,
+      evidence:["Tự chuyển 2x=4","Tự suy ra x=2 và kiểm tra lại"],
+      missing:[],
+      reason:"Đã nắm phần cốt lõi"
+    });
+    return ok({
+      stage:"final",
+      observation:"Em đã nắm đúng hướng.",
+      hint:"",
+      check_test:"",
+      next_question:"",
+      needs_clarification:false,
+      clarification_question:"",
+      final_solution:"Từ \\(2x+1=5\\), chuyển vế được \\(2x=4\\), suy ra \\(x=2\\). Thay lại thấy đúng.",
+      final_code:"",
+      complexity:""
+    });
+  };
+  try{
+    const r=await worker.fetch(req({
+      requestId:"math-high",sessionId:"math-high",subject:"math",track:"thcs",
+      message:"Em đã tự chuyển 2x=4, suy ra x=2 và thay lại thấy đúng. Chốt lời giải giúp em.",
+      problem:"Giải phương trình 2x+1=5",
+      language:"math",level:"guide",
+      history:[
+        {role:"user",text:"Em chuyển 1 sang phải được 2x=4."},
+        {role:"model",text:"Đúng, em chia hai vế cho 2."},
+        {role:"user",text:"Em được x=2 và thay lại đúng."}
+      ],
+      state:{hintStep:2,pendingQuestion:""}
+    }),env);
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.subject,"math");
+    assert.equal(data.allowFinal,true);
+    assert.ok(Number(data.masteryPercent)>=70);
+    assert.equal(data.response.stage,"final");
+    assert.match(data.answer,/Lời giải cuối/);
+    assert.match(data.answer,/x=2/);
   }finally{globalThis.fetch=old}
 });
