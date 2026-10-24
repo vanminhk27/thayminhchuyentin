@@ -283,7 +283,7 @@ test("legacy dots expression is auto wrapped for KaTeX",()=>{
   const fn=(0,eval)("("+src.slice(repairStart).trim()+")");
   const raw="(s = 1 + 2 + 3 + \\\\dots + n)";
   const fixed=fn(raw);
-  assert.equal(fixed,"\\\\(s = 1 + 2 + 3 + \\\\dots + n\\\\)");
+  assert.equal(fixed,"\\(s = 1 + 2 + 3 + \\dots + n\\)");
 });
 
 test("old math chat voice is normalized to Thầy-em",()=>{
