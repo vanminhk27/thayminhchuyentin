@@ -213,6 +213,18 @@ function normalizeProgrammingMath(text){
       .replace(/\b([A-Za-z][A-Za-z0-9_]*)\s*\\+(?:pmod|bmod|mod)\s*([A-Za-z][A-Za-z0-9_]*)\b/g,"`$1 % $2`");
   }).join("");
 }
+function repairLegacyLatex(text){
+  return String(text==null?"":text)
+    .replace(/\uFFFD?rac\b/g,"\\frac")
+    .replace(/\u000crac\b/g,"\\frac")
+    .replace(/\t(?=imes\b)/g,"\\t")
+    .replace(/\t(?=heta\b)/g,"\\t")
+    .replace(/\t(?=ext\b)/g,"\\t")
+    .replace(/\n(?=eq\b)/g,"\\n")
+    .replace(/\r(?=ight\b)/g,"\\r")
+    .replace(/\r(?=ho\b)/g,"\\r")
+    .replace(/\((\s*\\(?:frac|dfrac|tfrac|sqrt|sum|prod|lim|log|ln|sin|cos|tan|theta|alpha|beta|gamma|delta|lambda|mu|pi|sigma|phi|omega|left|right)[\s\S]*?)\)/g,(m,inner)=>"\\("+inner.trim()+"\\)");
+}
 function normalizeBareLatex(text){
   return String(text==null?"":text).split("\n").map(line=>{
     const t=line.trim();
@@ -235,7 +247,7 @@ function renderRich(target,text){
   try{
     if(window.marked&&window.DOMPurify){
       marked.setOptions({gfm:true,breaks:true});
-      const cleaned=normalizeBareLatex(repairMalformedMath(normalizeTutorMarkdown(raw)));
+      const cleaned=normalizeBareLatex(repairLegacyLatex(repairMalformedMath(normalizeTutorMarkdown(raw))));
       target.innerHTML=DOMPurify.sanitize(marked.parse(cleaned),{USE_PROFILES:{html:true}});renderMath(target);return;
     }
   }catch(e){console.warn("Render fallback",e)}
@@ -259,7 +271,7 @@ function appendTurn(role,text,meta={},scroll=true){
   if(chat.querySelector(".empty"))chat.innerHTML="";
   const wrap=document.createElement("div");
   wrap.className="turn "+(role==="user"?"turnUser":"turnAssistant")+(meta.degraded?" turnDegraded":"");
-  const label=document.createElement("div");label.className="turnLabel";label.textContent=role==="user"?"Em":"Trợ giảng AI";
+  const label=document.createElement("div");label.className="turnLabel";label.textContent=role==="user"?"Em":"Thầy";
   const bubble=document.createElement("div");bubble.className="turnBubble";
   if(role==="assistant")renderRich(bubble,text);else bubble.textContent=text;
   wrap.append(label,bubble);
