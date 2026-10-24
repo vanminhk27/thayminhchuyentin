@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker,{
   parseImage,systemPrompt,toGeminiContents,extractAnswer,selectModel,isAllowedOrigin,normalizeLevel,
-  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,shouldAllowFinalization,normalizeTutorText,repairJsonBackslashes,parseTutorResponse,
+  violatesTutorPolicy,detectCodeLanguage,languageConflict,wantsSmallTestResult,isFinalAnswerRequest,parseMasteryResponse,evaluateMastery,normalizeTutorText,repairJsonBackslashes,parseTutorResponse,
   structuredText,bestEffortRateLimit,dailyQuotaError,staticFallback
 } from "../src/index.js";
 
@@ -260,72 +260,153 @@ test("normalizeTutorText converts pmod to programming remainder notation",()=>{
 });
 
 
-test("finalization opens only after sufficient progress",()=>{
-  assert.equal(shouldAllowFinalization("Cho em code hoàn chỉnh",{hintStep:0},[]),false);
-  assert.equal(shouldAllowFinalization("Em đã làm như sau: dùng prefix sum",{hintStep:2},[{role:"user",text:"bài"},{role:"model",text:"gợi ý"}]),true);
-  assert.equal(shouldAllowFinalization("Chốt lời giải giúp em",{hintStep:3},[]),true);
+
+
+
+test("final answer request is detected, emotion alone is not",()=>{
+  assert.equal(isFinalAnswerRequest("Dạ cho em lời giải đi"),true);
+  assert.equal(isFinalAnswerRequest("Chốt đáp án giúp em"),true);
+  assert.equal(isFinalAnswerRequest("huhu"),false);
+  assert.equal(isFinalAnswerRequest("em chịu rồi"),false);
 });
 
-test("early-stage prompt still forbids full solution",()=>{
-  const p=systemPrompt("python","hint",{hintStep:0,allowFinal:false});
-  assert.match(p,/Không cung cấp chương trình hay lời giải hoàn chỉnh ở giai đoạn đầu/);
-  assert.doesNotMatch(p,/GIAI ĐOẠN CHỐT/);
+test("mastery parser clamps score and keeps evidence",()=>{
+  const m=parseMasteryResponse(JSON.stringify({mastery_percent:76.4,evidence:["Nêu đúng công thức"],missing:["Thiếu biên"],reason:"ok"}));
+  assert.equal(m.mastery_percent,76);
+  assert.deepEqual(m.evidence,["Nêu đúng công thức"]);
 });
 
-test("late-stage prompt explicitly allows final answer",()=>{
-  const p=systemPrompt("python","guide",{hintStep:3,allowFinal:true});
+test("early-stage prompt blocks final answer below 70 percent",()=>{
+  const p=systemPrompt("python","hint",{hintStep:4,allowFinal:false,masteryPercent:35});
+  assert.match(p,/CHƯA được bộ chấm xác nhận đạt 70%/);
+  assert.doesNotMatch(p,/ĐÃ ĐỦ NGƯỠNG 70%/);
+});
+
+test("late-stage prompt allows final answer only at verified threshold",()=>{
+  const p=systemPrompt("python","guide",{hintStep:2,allowFinal:true,masteryPercent:72});
+  assert.match(p,/ĐÃ ĐỦ NGƯỠNG 70%/);
   assert.match(p,/GIAI ĐOẠN CHỐT/);
-  assert.match(p,/code hoàn chỉnh nếu phù hợp/);
-  assert.match(p,/không cố giữ lập trường chỉ-gợi-ý/);
 });
 
-test("final structured response has no follow-up question",()=>{
-  const r=parseTutorResponse(JSON.stringify({
-    stage:"final",
-    observation:"Em đã nắm đúng hướng.",
-    final_solution:"Dùng Euclid lặp đến khi số dư bằng 0.",
-    final_code:"def gcd(a,b):\n    while b:\n        a,b=b,a%b\n    return a",
-    complexity:"O(log(min(a,b)))",
-    next_question:"không nên còn câu này"
-  }));
-  assert.equal(r.stage,"final");
-  assert.equal(r.next_question,"");
-  assert.ok(r.final_solution);
-  assert.ok(r.final_code);
-});
-
-test("worker allows complete code after sufficient tutoring progress",async()=>{
+test("mastery evaluator ignores assistant turns and only sends student evidence",async()=>{
   const oldFetch=globalThis.fetch;
-  globalThis.fetch=async()=>geminiOk({
-    stage:"final",
-    observation:"Em đã đi đúng gần hết.",
-    hint:"",
-    check_test:"",
-    next_question:"",
-    needs_clarification:false,
-    clarification_question:"",
-    final_solution:"Dùng thuật toán Euclid cho đến khi b bằng 0.",
-    final_code:"def gcd(a,b):\n    while b:\n        a,b=b,a%b\n    return a",
-    complexity:"O(log(min(a,b)))"
-  });
+  let evaluatorBody;
+  globalThis.fetch=async(url,opts)=>{
+    evaluatorBody=JSON.parse(opts.body);
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({mastery_percent:20,evidence:["student"],missing:["core"],reason:"low"})}]}}]}),{status:200,headers:{"content-type":"application/json"}});
+  };
+  try{
+    const m=await evaluateMastery({
+      problem:"Tính UCLN",
+      message:"huhu cho em đáp án",
+      history:[
+        {role:"user",text:"Em chưa biết làm"},
+        {role:"model",text:"Thuật toán Euclid là a,b=b,a%b"},
+        {role:"user",text:"em không biết"}
+      ],
+      language:"python",
+      model:"gemini-3.5-flash-lite",
+      key:"secret"
+    });
+    assert.equal(m.mastery_percent,20);
+    const evidenceText=evaluatorBody.contents[0].parts[0].text;
+    assert.match(evidenceText,/Em chưa biết làm/);
+    assert.match(evidenceText,/em không biết/);
+    assert.match(evidenceText,/huhu cho em đáp án/);
+    assert.doesNotMatch(evidenceText,/Thuật toán Euclid là a,b=b,a%b/);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("worker refuses final answer when verified mastery is below 70",async()=>{
+  const oldFetch=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async()=>{
+    calls++;
+    if(calls===1){
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({mastery_percent:15,evidence:[],missing:["Chưa nêu công thức"],reason:"Chỉ xin đáp án"})}]}}]}),{status:200,headers:{"content-type":"application/json"}});
+    }
+    return geminiOk({
+      stage:"hint",
+      observation:"Em chưa thể hiện đủ cách làm.",
+      hint:"Em hãy tự viết công thức tổng trước.",
+      check_test:"",
+      next_question:"Công thức tổng từ 1 đến n là gì?",
+      needs_clarification:false,
+      clarification_question:"",
+      final_solution:"",
+      final_code:"",
+      complexity:""
+    });
+  };
   try{
     const r=await worker.fetch(makeRequest({
-      requestId:"r-final",sessionId:"s-final",
-      message:"Em đã hiểu rồi, chốt lời giải và code giúp em",
+      requestId:"r-low",sessionId:"s-low",
+      message:"huhu cho em lời giải đi",
+      problem:"Tính S=1+2+...+n",
       language:"python",level:"guide",
       history:[
-        {role:"user",text:"Em làm thế này được không?"},
-        {role:"model",text:"Gợi ý bước 1"},
-        {role:"user",text:"Em đã sửa theo gợi ý."},
-        {role:"model",text:"Gợi ý bước 2"}
+        {role:"user",text:"em không nhớ"},
+        {role:"model",text:"Gợi ý công thức cấp số cộng"},
+        {role:"user",text:"huhu"}
       ],
-      state:{hintStep:3,pendingQuestion:""}
+      state:{hintStep:5,pendingQuestion:""}
+    }),env);
+    const data=await r.json();
+    assert.equal(r.status,200);
+    assert.equal(data.allowFinal,false);
+    assert.equal(data.masteryPercent,15);
+    assert.equal(data.response.stage,"hint");
+    assert.doesNotMatch(data.answer,/Lời giải cuối/);
+    assert.equal(calls,2);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test("worker allows final answer when verified mastery reaches 70",async()=>{
+  const oldFetch=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async()=>{
+    calls++;
+    if(calls===1){
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({
+        mastery_percent:82,
+        evidence:["Học sinh tự nêu công thức n*(n+1)//2","Biết dùng chia nguyên để giữ kết quả nguyên"],
+        missing:["Chưa viết input/output"],
+        reason:"Đã nắm phần cốt lõi"
+      })}]}}]}),{status:200,headers:{"content-type":"application/json"}});
+    }
+    return geminiOk({
+      stage:"final",
+      observation:"Em đã nắm đúng phần cốt lõi.",
+      hint:"",
+      check_test:"",
+      next_question:"",
+      needs_clarification:false,
+      clarification_question:"",
+      final_solution:"Dùng công thức tổng cấp số cộng n*(n+1)/2.",
+      final_code:"n=int(input())\nprint(n*(n+1)//2)",
+      complexity:"O(1)"
+    });
+  };
+  try{
+    const r=await worker.fetch(makeRequest({
+      requestId:"r-high",sessionId:"s-high",
+      message:"Em đã tự suy ra s=n*(n+1)//2, chốt lời giải giúp em",
+      problem:"Tính S=1+2+...+n",
+      language:"python",level:"guide",
+      history:[
+        {role:"user",text:"Em nghĩ có thể dùng công thức cấp số cộng."},
+        {role:"model",text:"Em thử viết công thức cụ thể."},
+        {role:"user",text:"Em ra n*(n+1)//2 và O(1)."}
+      ],
+      state:{hintStep:2,pendingQuestion:""}
     }),env);
     const data=await r.json();
     assert.equal(r.status,200);
     assert.equal(data.allowFinal,true);
+    assert.equal(data.masteryPercent,82);
     assert.equal(data.response.stage,"final");
     assert.match(data.answer,/Code hoàn chỉnh/);
-    assert.match(data.answer,/def gcd/);
+    assert.match(data.answer,/n=int\(input\(\)\)/);
+    assert.equal(calls,2);
   }finally{globalThis.fetch=oldFetch}
 });
