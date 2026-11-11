@@ -87,5 +87,3 @@ h1{max-width:850px;margin:10px 0 16px;color:var(--navy);font-size:clamp(34px,5vw
 .achievement ul{margin:12px 0 0}
 @media(max-width:850px){.heroGrid,.layout{grid-template-columns:1fr}.side{position:static}.cards{grid-template-columns:1fr 1fr}.navlinks a:not(.zalo){display:none}.achievement{grid-template-columns:130px 1fr}.achievement img{width:130px;height:130px}}
 @media(max-width:600px){.topbar{display:none}.nav{min-height:64px}.brand img{width:42px;height:42px}.brand span{font-size:13px}.hero{padding:34px 0}.heroBox{display:none}.layout{padding-top:34px}.cards,.articleGrid{grid-template-columns:1fr}.article h2{font-size:25px}.footer .wrap{display:block}.achievement{grid-template-columns:1fr}.achievement img{width:min(100%,230px);height:auto;aspect-ratio:1}.floatZalo{right:10px;bottom:10px}}
-
-.achievement.achievementTeam{grid-template-columns:1fr;border-top:4px solid var(--orange,#ff8a00);scroll-margin-top:90px}.achievement.achievementTeam>img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:contain}
