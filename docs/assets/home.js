@@ -11,7 +11,7 @@ const searchItems=[
   {title:"Olympic & HKICO",note:"Khóa học",keywords:"olympic hkico quoc te",target:"#courses"},
   {title:"Lập trình Website & Bảo mật Web",note:"8 Level · 12 buổi/Level",keywords:"wordpress html css javascript bootstrap django bao mat web",target:"#courses"},
   {title:"Nghiên cứu khoa học",note:"Khóa học",keywords:"nghien cuu khoa hoc khkt sang tao",target:"#courses"},
-  {title:"Thành tích học sinh",note:"Tuyển sinh chuyên & Tin học trẻ 2025–2026",keywords:"thanh tich hoc sinh giai thuong chuyen tin chuyen toan",target:"#achievements"},
+  {title:"Thành tích học sinh",note:"Tuyển sinh chuyên, Tin học trẻ & Sáng tạo AI 2026",keywords:"thanh tich hoc sinh giai thuong chuyen tin chuyen toan sang tao ai tran kien van pham nhat minh khoi nguyen tat danh",target:"#achievements"},
   {title:"Kho bài tập",note:"Luyện Code TMCT",keywords:"bai tap luyen code c++ python",target:"https://luyencode.net/organization/tmct"},
   {title:"Lộ trình luyện thi chuyên Tin",note:"Bài viết",keywords:"luyen thi chuyen tin c++ thuat toan lop 10",target:"luyen-thi-chuyen-tin.html"},
   {title:"Luyện thi Tin học trẻ",note:"Bài viết",keywords:"tin hoc tre lap trinh thuat toan",target:"luyen-thi-tin-hoc-tre.html"},
